@@ -1,3 +1,5 @@
+pub mod error;
+
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -19,7 +21,7 @@ pub struct GameEntry {
     pub addition_date: DateTime<Utc>,
     pub tags: Vec<String>,
     pub source: Option<String>,
-    pub last_played: Option<String>,
+    pub last_played: Option<NaiveDate>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -31,7 +33,7 @@ pub struct GameEntryDetail {
     pub addition_date: DateTime<Utc>,
     pub tags: Vec<String>,
     pub source: Option<String>,
-    pub last_played: Option<String>,
+    pub last_played: Option<NaiveDate>,
     pub launch_path: Option<String>,
     pub stored_api_data: Option<serde_json::Value>,
 }
@@ -48,7 +50,7 @@ pub struct SearchResult {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RawgGameData {
-    pub rawg_id: i64,
+    pub id: i64,
     pub name: String,
     pub released: Option<String>,
     pub rating: Option<f64>,
@@ -69,7 +71,7 @@ pub struct RawgPlatform {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RawgPlatformInner {
-    pub platform_id: i64,
+    pub id: i64,
     pub name: String,
 }
 
