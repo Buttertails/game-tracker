@@ -1,4 +1,6 @@
-use rusqlite::Connection;
+pub mod categories;
+
+use rusqlite::{params, Connection, Result};
 
 pub struct Database {
     pub conn: Connection,
