@@ -1,6 +1,8 @@
 pub mod categories;
+pub mod game_entries;
+pub mod tags;
 
-use rusqlite::{params, Connection, Result};
+use rusqlite::Connection;
 
 pub struct Database {
     pub conn: Connection,
