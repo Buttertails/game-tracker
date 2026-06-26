@@ -17,3 +17,9 @@ pub enum AppError {
     DatabaseError(String),
     InvalidDate(String),
 }
+
+impl From<rusqlite::Error> for AppError {
+    fn from(e: rusqlite::Error) -> Self {
+        AppError::DatabaseError(e.to_string())
+    }
+}

@@ -101,7 +101,7 @@ pub fn find_category_by_name(db: &Database, name: &str) -> Result<Option<Categor
 pub fn get_category_entry_count(db: &Database, id: i64) -> Result<i64> {
     let mut stmt = db
         .conn
-        .prepare("SELECT COUNT(*) FROM game_entries WHERE c.category_id = ?1")?;
+        .prepare("SELECT COUNT(*) FROM game_entries WHERE category_id = ?1")?;
 
     let result = stmt.query_row([id], |row| row.get(0))?;
 
