@@ -7,7 +7,6 @@ use game_tracker_lib::{
     },
 };
 
-use chrono::{Local, NaiveDate};
 use proptest::prelude::*;
 
 fn valid_source() -> impl Strategy<Value = String> {

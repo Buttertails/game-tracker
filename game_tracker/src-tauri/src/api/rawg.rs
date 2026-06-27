@@ -20,6 +20,19 @@ impl RawgClient {
         }
     }
 
+    pub fn with_base_url(api_key: String, base_url: String) -> Self {
+        let client = Client::builder()
+            .timeout(Duration::from_secs(10))
+            .build()
+            .expect("Failed to build HTTP client");
+
+        RawgClient {
+            client,
+            base_url,
+            api_key,
+        }
+    }
+
     pub async fn search_games(&self, query: &str) -> Result<Vec<SearchResult>, AppError> {
         // Validate query is non-empty
         if query.is_empty() {
