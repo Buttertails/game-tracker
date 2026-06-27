@@ -42,3 +42,9 @@ impl From<std::io::Error> for AppError {
         AppError::LaunchFailed(e.to_string())
     }
 }
+
+impl From<reqwest::Error> for AppError {
+    fn from(e: reqwest::Error) -> Self {
+        AppError::ApiUnavailable(e.to_string())
+    }
+}
