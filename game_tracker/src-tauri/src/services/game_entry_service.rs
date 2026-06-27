@@ -123,7 +123,8 @@ impl<'a> GameEntryService<'a> {
     }
 
     pub fn check_duplicate_by_name(&self, name: &str) -> Result<Option<DuplicateInfo>, AppError> {
-        let result = game_entries::find_entry_by_name(self.db, name)?;
+        let trimmed = name.trim();
+        let result = game_entries::find_entry_by_name(self.db, trimmed)?;
         Ok(result)
     }
 }
