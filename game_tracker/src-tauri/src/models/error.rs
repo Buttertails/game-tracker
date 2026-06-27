@@ -36,3 +36,9 @@ impl From<chrono::ParseError> for AppError {
         AppError::InvalidDate(e.to_string())
     }
 }
+
+impl From<std::io::Error> for AppError {
+    fn from(e: std::io::Error) -> Self {
+        AppError::LaunchFailed(e.to_string())
+    }
+}
