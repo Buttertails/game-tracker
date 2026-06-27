@@ -30,3 +30,9 @@ impl From<serde_json::Error> for AppError {
         AppError::DatabaseError(e.to_string())
     }
 }
+
+impl From<chrono::ParseError> for AppError {
+    fn from(e: chrono::ParseError) -> Self {
+        AppError::InvalidDate(e.to_string())
+    }
+}
