@@ -1,156 +1,350 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
+  import {onMount} from "svelte";
 
-  let name = $state("");
-  let greetMsg = $state("");
-
-  async function greet(event: Event) {
-    event.preventDefault();
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    greetMsg = await invoke("greet", { name });
+  interface Category {
+      category_id: number;
+      name: string;
+      is_preset: boolean;
+      display_order: number;
+      entry_count: number;
   }
+
+  interface GameEntry {
+      entry_id: number;
+      name: string;
+      category_id: number;
+      category_number: string;
+      addition_date: string;
+      tags: string[];
+      source: string | null;
+      last_played: string | null;
+  }
+
+  // Reactive state
+  let categories = $state<Category[]>([]); 
+  let selectedCategoryId = $state<number | null>(null);
+  let entries = $state<GameEntry[]>([]);
+
+  // New category
+  let showNewCategoryForm = $state(false);
+  let newCategoryName = $state("");
+  let categoryError = $state("");
+
+  // Load categories on startup
+  onMount(async () => {
+      categories = await invoke("get_categories");
+
+      if(categories.length > 0) {
+          selectedCategoryId = categories[0].category_id;
+          await loadEntries(categories[0].category_id);
+      }
+  });
+
+  // Load entries when category is selected
+  async function loadEntries(categoryId: number) {
+      selectedCategoryId = categoryId;
+      entries = await invoke("get_entries_by_category", {categoryId});
+  }
+
+  // Create new category
+  async function createCategory() {
+    categoryError = "";
+
+    try {
+      await invoke("create_category", {name: newCategoryName});
+      newCategoryName = "";
+      showNewCategoryForm = false;
+
+      // Refresh categories list
+      categories = await invoke("get_categories");
+    } catch (error: any) {
+      categoryError = error.ValidationError || error.DuplicateCategory || "Failed to create category";
+    }
+  }
+
+  // Delete category
+  async function deleteCategory(id: number, entryCount: number) {
+    if (entryCount > 0) {
+      const confirmed = confirm(`This category has ${entryCount} game(s). Delete anyway?`);
+      if(!confirmed) return;
+    }
+
+    try {
+      await invoke("delete_category", {id, confirm: entryCount > 0});
+      categories = await invoke("get_categories");
+
+      if (selectedCategoryId === id) {
+        if (categories.length > 0) {
+          await loadEntries(categories[0].category_id);
+        } else {
+          selectedCategoryId = null;
+          entries = [];
+        }
+      }
+    } catch (error: any) {
+      alert(error.CategoryNotFound || "Failed to delete category");
+    } 
+  }
+
+  
 </script>
 
-<main class="container">
-  <h1>Welcome to Tauri + Svelte</h1>
+<div class="app-layout">
+    <aside class="sidebar">
+        <ul>
+            {#each categories as category}
+                <li>
+                  <div class="category-row"> 
+                    <button
+                        class:selected={selectedCategoryId === category.category_id}
+                        onclick={() => loadEntries(category.category_id)}
+                    >
+                      {category.name}
+                      <span class="count">({category.entry_count})</span>
+                    </button>
+                    <button
+                      class="delete-btn"
+                      onclick={() => deleteCategory(category.category_id, category.entry_count)}
+                    >
+                      x
+                    </button>
+                  </div>    
+                </li>
+            {/each}
+        </ul>
+        {#if showNewCategoryForm}
+          <div class="new-category-form">
+            <input 
+              type="text"
+              placeholder="Category name..."
+              bind:value={newCategoryName}
+              onkeydown={(e) => {
+                if (e.key === "Enter") createCategory();
+                if (e.key === "Escape") { showNewCategoryForm = false, categoryError = ""; }
+              }}
+            />
+            <div class="form-buttons">
+              <button onclick={createCategory}>Add</button>
+              <button onclick={() => { showNewCategoryForm = false; categoryError = ""; }}>Cancel</button>
+            </div>
+            {#if categoryError}
+              <p class="error">{categoryError}</p>
+            {/if}
+          </div>
+        {:else}
+          <button class="new-category-btn" onclick={() => showNewCategoryForm = true}>
+            New Category...
+          </button>
+        {/if}
+    </aside>
 
-  <div class="row">
-    <a href="https://vite.dev" target="_blank">
-      <img src="/vite.svg" class="logo vite" alt="Vite Logo" />
-    </a>
-    <a href="https://tauri.app" target="_blank">
-      <img src="/tauri.svg" class="logo tauri" alt="Tauri Logo" />
-    </a>
-    <a href="https://svelte.dev" target="_blank">
-      <img src="/svelte.svg" class="logo svelte-kit" alt="SvelteKit Logo" />
-    </a>
-  </div>
-  <p>Click on the Tauri, Vite, and SvelteKit logos to learn more.</p>
-
-  <form class="row" onsubmit={greet}>
-    <input id="greet-input" placeholder="Enter a name..." bind:value={name} />
-    <button type="submit">Greet</button>
-  </form>
-  <p>{greetMsg}</p>
-</main>
+    <main class="content">
+        <h2>{categories.find(c => c.category_id === selectedCategoryId)?.name ?? "Select a category"}</h2>
+        {#if entries.length === 0}
+            <p class="empty">No games in this category yet.</p>
+        {:else}
+            <ul class="entry-list">
+                {#each entries as entry}
+                    <li class="entry-item">
+                        <strong>{entry.name}</strong>
+                        <span class="meta">Added: {entry.addition_date}</span>
+                        {#if entry.source}
+                            <span class="meta">Source: {entry.source}</span>
+                        {/if}
+                        {#if entry.tags.length > 0}
+                            <div class="tags">
+                                {#each entry.tags as tag}
+                                    <span class="tag">{tag}</span>
+                                {/each}
+                            </div>
+                        {/if}
+                    </li>
+                {/each}
+            </ul>
+        {/if}
+    </main>
+</div>
 
 <style>
-.logo.vite:hover {
-  filter: drop-shadow(0 0 2em #747bff);
-}
+    :global(body) {
+        margin: 0;
+    }
+    .app-layout {
+        display: flex;
+        height: 100vh;
+    }
 
-.logo.svelte-kit:hover {
-  filter: drop-shadow(0 0 2em #ff3e00);
-}
+    .sidebar {
+        width: 250px;
+        background: #262626;
+        color: #eee;
+        padding: 0.25rem;
+        overflow-y: auto;
+        resize: horizontal;
+        overflow: auto;
+        min-width: 150px;
+        max-width: 400px;
+    }
 
-:root {
-  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  line-height: 24px;
-  font-weight: 400;
+    .sidebar ul {
+        list-style: none;
+        padding: 0;
+        margin-bottom: 0
+    }
 
-  color: #0f0f0f;
-  background-color: #f6f6f6;
+    .category-row {
+      position: relative;
+    }
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  -webkit-text-size-adjust: 100%;
-}
+    .category-row button:first-child {
+      width: 100%;
+      text-align: left;
+      padding: 0.5rem;
+      background: none;
+      border: none;
+      color: #ccc;
+      cursor: pointer;
+      border-radius: 4px;
+    }
 
-.container {
-  margin: 0;
-  padding-top: 10vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  text-align: center;
-}
+    .category-row button:first-child:hover{
+      background: #2d0d52;
+    }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: 0.75s;
-}
+    .category-row button:first-child.selected {
+      background: #4d148e;
+      color: #fff;
+    }
 
-.logo.tauri:hover {
-  filter: drop-shadow(0 0 2em #24c8db);
-}
+    .category-row:hover .count{
+      visibility: hidden;
+    }
 
-.row {
-  display: flex;
-  justify-content: center;
-}
+    .count {
+      float: right;
+      opacity: 0.6;
+    }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
+    .delete-btn {
+      position: absolute;
+      top: 50%;
+      right: 4px;
+      transform: translateY(-50%);
+      display: none;
+      background: none;
+      border: none;
+      color: #ccc;
+      cursor: pointer;
+      padding: 0.2rem 0.4rem;
+      font-size: 1rem;
+      border-radius: 4px;
+    }
 
-a:hover {
-  color: #535bf2;
-}
+    .category-row:hover .delete-btn {
+      display: block;
+    }
 
-h1 {
-  text-align: center;
-}
+    .delete-btn:hover {
+      color: #ff6b6b
+    }
 
-input,
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  color: #0f0f0f;
-  background-color: #ffffff;
-  transition: border-color 0.25s;
-  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
-}
+    .new-category-btn {
+      width: 100%;
+      padding: 0.5rem;
+      margin-top: 0;
+      background: none;
+      border: 1px dashed #666;
+      color: #ccc;
+      cursor: pointer;
+      border-radius: 4px;
+    }
 
-button {
-  cursor: pointer;
-}
+    .new-category-btn:hover {
+      border-color: #aaa;
+      color: #fff
+    }
 
-button:hover {
-  border-color: #396cd8;
-}
-button:active {
-  border-color: #396cd8;
-  background-color: #e8e8e8;
-}
+    .new-category-form {
+      margin-top: 0.5rem;
+    }
 
-input,
-button {
-  outline: none;
-}
+    new-category-form input {
+      width: 100%;
+      padding: 0.4rem;
+      border-radius: 4px;
+      border: 1px solid #444;
+      background: #2a2a3e;
+      color: #eee;
+      box-sizing: border-box;
+    }
+    
+    .form-buttons {
+      display: flex;
+      gap: 0.25rem;
+      margin-top: 0.25rem;
+    }
 
-#greet-input {
-  margin-right: 5px;
-}
+    .form-buttons button {
+      flex: 1;
+      padding: 0.3rem;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color: #f6f6f6;
-    background-color: #2f2f2f;
-  }
+    .error {
+      color: #ff6b6b;
+      font-size: 0.8rem;
+      margin-top: 0.25rem;
+    }
 
-  a:hover {
-    color: #24c8db;
-  }
+    .content {
+        flex: 1;
+        background: #313131;
+        padding: 1rem;
+        overflow-y: auto;
+    }
 
-  input,
-  button {
-    color: #ffffff;
-    background-color: #0f0f0f98;
-  }
-  button:active {
-    background-color: #0f0f0f69;
-  }
-}
+    .content h2 {
+      color: #eee
+    }
 
+    .empty {
+        color: #888;
+        font-style: italic;
+    }
+
+    .entry-list {
+        list-style: none;
+        padding: 0;
+    }
+
+    .entry-item {
+        padding: 0.75rem;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .meta {
+        font-size: 0.85rem;
+        color: #666;
+    }
+
+    .tags {
+        display: flex;
+        gap: 0.25rem;
+        flex-wrap: wrap;
+    }
+
+    .tag {
+        background: #e0e7ff;
+        color: #3730a3;
+        padding: 0.1rem 0.5rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+    }
 </style>

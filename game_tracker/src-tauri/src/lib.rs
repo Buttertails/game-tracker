@@ -7,11 +7,17 @@ pub mod services;
 use api::RawgClient;
 use commands::AppState;
 use db::Database;
+use std::env;
 use std::sync::Mutex;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let db = Database::new("game_backlog.db").unwrap();
+    let db_path = env::current_exe()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("game_backlog.db");
+    let db = Database::new(db_path.to_str().unwrap()).unwrap();
 
     {
         let service = services::category_service::CategoryService::new(&db);
