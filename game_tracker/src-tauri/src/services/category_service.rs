@@ -1,5 +1,5 @@
 use crate::db::{categories, Database};
-use crate::models::error::AppError::{self, ValidationError};
+use crate::models::error::AppError::{self};
 use crate::models::Category;
 pub struct CategoryService<'a> {
     db: &'a Database,

@@ -54,6 +54,30 @@ pub fn get_entries_by_category(db: &Database, category_id: i64) -> Result<Vec<Ga
     Ok(entries)
 }
 
+pub fn get_game_entry(db: &Database, id: i64) -> Result<GameEntry> {
+    let mut stmt = db.conn.prepare(
+        "SELECT g.game_entry_id, g.name, g.category_id, c.name, g.addition_date, g.source, g.last_played
+            FROM game_entries g JOIN categories c on g.category_id = c.category_id
+            WHERE game_entry_id = ?1")?;
+
+    let mut detail = stmt.query_row([id], |row| {
+        Ok(GameEntry {
+            entry_id: row.get(0)?,
+            name: row.get(1)?,
+            category_id: row.get(2)?,
+            category_name: row.get(3)?,
+            addition_date: row.get(4)?,
+            tags: Vec::<String>::new(),
+            source: row.get(5)?,
+            last_played: row.get(6)?,
+        })
+    })?;
+
+    detail.tags = get_tags_for_entry(db, id)?;
+
+    Ok(detail)
+}
+
 pub fn get_game_entry_detail(db: &Database, id: i64) -> Result<GameEntryDetail> {
     let mut stmt = db.conn.prepare(
         "SELECT g.game_entry_id, g.name, g.category_id, c.name, g.addition_date, g.source, g.last_played, g.launch_path, g.stored_api_data

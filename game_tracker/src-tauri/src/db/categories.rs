@@ -77,14 +77,32 @@ pub fn update_category_name(db: &Database, id: i64, new_name: &str) -> Result<Ca
 }
 
 pub fn find_category_by_name(db: &Database, name: &str) -> Result<Option<Category>> {
-    // select based on name, if returns result then Some if no result then None
-
     let mut stmt = db
         .conn
         .prepare("SELECT * FROM categories WHERE name = ?1 COLLATE NOCASE")?;
 
     let result = stmt
         .query_row([name], |row| {
+            Ok(Category {
+                category_id: row.get(0)?,
+                name: row.get(1)?,
+                is_preset: row.get(2)?,
+                display_order: row.get(3)?,
+                entry_count: 0,
+            })
+        })
+        .optional()?;
+
+    Ok(result)
+}
+
+pub fn find_category_by_id(db: &Database, id: i64) -> Result<Option<Category>> {
+    let mut stmt = db
+        .conn
+        .prepare("SELECT * FROM categories WHERE category_id = ?1")?;
+
+    let result = stmt
+        .query_row([id], |row| {
             Ok(Category {
                 category_id: row.get(0)?,
                 name: row.get(1)?,
