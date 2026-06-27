@@ -125,6 +125,18 @@ pub fn find_entry_by_name(db: &Database, name: &str) -> Result<Option<DuplicateI
     Ok(result)
 }
 
+pub fn find_entry_by_id(db: &Database, id: i64) -> Result<Option<i64>> {
+    let mut stmt = db.conn.prepare(
+        "
+        SELECT game_entry_id
+        FROM game_entries 
+        WHERE game_entry_id = ?1",
+    )?;
+
+    let result = stmt.query_row([id], |row| row.get(0)).optional()?;
+    Ok(result)
+}
+
 pub fn update_game_entry_category(
     db: &Database,
     id: i64,

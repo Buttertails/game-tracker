@@ -8,6 +8,7 @@ pub enum AppError {
     DuplicateTag(String),
     CategoryNotFound(i64),
     EntryNotFound(i64),
+    TagNotFound(String),
     CategoryNotEmpty { category_id: i64, entry_count: i64 },
     DuplicateGameEntry(DuplicateInfo),
     ApiUnavailable(String),
