@@ -48,3 +48,9 @@ impl From<reqwest::Error> for AppError {
         AppError::ApiUnavailable(e.to_string())
     }
 }
+
+impl std::fmt::Display for AppError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
