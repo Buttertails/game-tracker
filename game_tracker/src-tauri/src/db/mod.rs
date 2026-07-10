@@ -1,4 +1,5 @@
 pub mod game_entries;
+pub mod notes;
 pub mod shelves;
 pub mod tags;
 
