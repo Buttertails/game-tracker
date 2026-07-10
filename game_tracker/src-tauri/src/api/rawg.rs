@@ -65,6 +65,12 @@ impl RawgClient {
                     .iter()
                     .map(|p| p.platform.name.clone())
                     .collect(),
+                genres: game
+                    .genres
+                    .unwrap_or_default()
+                    .iter()
+                    .map(|g| g.name.clone())
+                    .collect(),
                 background_image: game.background_image,
             })
             .collect();

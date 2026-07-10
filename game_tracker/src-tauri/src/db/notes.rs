@@ -7,7 +7,7 @@ use super::Database;
 pub fn insert_note(db: &Database, id: i64, note: &str) -> Result<TimestampedNote> {
     let mut stmt = db
         .conn
-        .prepare("INSERT INTO game_notes(entry_id, tag) VALUES (?1, ?2) RETURNING ")?;
+        .prepare("INSERT INTO game_notes(entry_id, text) VALUES (?1, ?2)")?;
 
     let note = stmt.query_row(params![id, note], |row| {
         Ok(TimestampedNote {
@@ -24,7 +24,7 @@ pub fn insert_note(db: &Database, id: i64, note: &str) -> Result<TimestampedNote
 pub fn delete_note(db: &Database, id: i64) -> Result<usize> {
     let result = db
         .conn
-        .execute("DELETE FROM notes WHERE note_id = ?1", [id])?;
+        .execute("DELETE FROM game_notes WHERE note_id = ?1", [id])?;
 
     Ok(result)
 }
