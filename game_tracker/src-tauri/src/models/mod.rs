@@ -43,7 +43,7 @@ pub struct ShelfSummary {
     pub shelf_id: i64,
     pub name: String,
     pub backlog_count: i64,
-    pub in_progres_count: i64,
+    pub in_progress_count: i64,
     pub completed_count: i64,
 }
 
@@ -55,10 +55,10 @@ pub struct GameEntry {
     pub status: GameStatus,
     pub genre: Option<String>,
     pub length_category: Option<LengthCategory>,
-    pub release_year: Option<Era>,
+    pub release_year: Option<i32>,
     pub source: Option<String>,
     pub launch_path: Option<String>,
-    pub ownership_status: Option<OwnershipStatus>,
+    pub ownership_status: OwnershipStatus,
     pub started_at: Option<DateTime<Utc>>,
     pub completed_at: Option<DateTime<Utc>>,
     pub addition_date: DateTime<Utc>,
@@ -74,10 +74,10 @@ pub struct GameEntryDetail {
     pub status: GameStatus,
     pub genre: Option<String>,
     pub length_category: Option<LengthCategory>,
-    pub release_year: Option<Era>,
+    pub release_year: Option<i32>,
     pub source: Option<String>,
     pub launch_path: Option<String>,
-    pub ownership_status: Option<OwnershipStatus>,
+    pub ownership_status: OwnershipStatus,
     pub started_at: Option<DateTime<Utc>>,
     pub completed_at: Option<DateTime<Utc>>,
     pub addition_date: DateTime<Utc>,
@@ -183,17 +183,93 @@ pub fn derive_era(release_year: i32) -> Era {
 
 pub fn format_duration(started_at: DateTime<Utc>, completed_at: DateTime<Utc>) -> String {
     let duration = completed_at.signed_duration_since(started_at);
-    let total_horus = duration.num_hours();
+    let total_hours = duration.num_hours();
 
-    if total_horus < 1 {
+    if total_hours < 1 {
         "less than 1 hour".to_string()
     } else {
-        let days = total_horus / 24;
-        let hours = total_horus % 24;
+        let days = total_hours / 24;
+        let hours = total_hours % 24;
         if days > 0 {
             format!("{}d {}h", days, hours)
         } else {
             format!("{}h", hours)
+        }
+    }
+}
+
+impl GameStatus {
+    pub fn from_id(id: i64) -> Option<Self> {
+        match id {
+            1 => Some(GameStatus::Backlog),
+            2 => Some(GameStatus::InProgress),
+            3 => Some(GameStatus::Completed),
+            _ => None,
+        }
+    }
+
+    pub fn to_id(&self) -> i64 {
+        match self {
+            GameStatus::Backlog => 1,
+            GameStatus::InProgress => 2,
+            GameStatus::Completed => 3,
+        }
+    }
+}
+
+impl LengthCategory {
+    pub fn from_id(id: i64) -> Option<Self> {
+        match id {
+            1 => Some(LengthCategory::Short),
+            2 => Some(LengthCategory::Medium),
+            3 => Some(LengthCategory::Long),
+            _ => None,
+        }
+    }
+
+    pub fn to_id(&self) -> i64 {
+        match self {
+            LengthCategory::Short => 1,
+            LengthCategory::Medium => 2,
+            LengthCategory::Long => 3,
+        }
+    }
+}
+
+impl Era {
+    pub fn from_id(id: i64) -> Option<Self> {
+        match id {
+            1 => Some(Era::Retro),
+            2 => Some(Era::Modern),
+            3 => Some(Era::Recent),
+            _ => None,
+        }
+    }
+
+    pub fn to_id(&self) -> i64 {
+        match self {
+            Era::Retro => 1,
+            Era::Modern => 2,
+            Era::Recent => 3,
+        }
+    }
+}
+
+impl OwnershipStatus {
+    pub fn from_id(id: i64) -> Option<Self> {
+        match id {
+            1 => Some(OwnershipStatus::Installed),
+            2 => Some(OwnershipStatus::NotInstalled),
+            3 => Some(OwnershipStatus::Wishlisted),
+            _ => None,
+        }
+    }
+
+    pub fn to_id(&self) -> i64 {
+        match self {
+            OwnershipStatus::Installed => 1,
+            OwnershipStatus::NotInstalled => 2,
+            OwnershipStatus::Wishlisted => 3,
         }
     }
 }
