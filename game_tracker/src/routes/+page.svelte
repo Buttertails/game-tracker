@@ -1,6 +1,7 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
   import {onMount} from "svelte";
+  import Modal from 'svelte';
 
   interface Category {
       category_id: number;
@@ -30,6 +31,27 @@
   let showNewCategoryForm = $state(false);
   let newCategoryName = $state("");
   let categoryError = $state("");
+
+  // Add game modal
+  let showAddGameModal = $state(false);
+  let searchQuery = $state("");
+  let searchResults = $state<any[]>([]);
+  let manualMode = $state(false);
+  let newGameName = $state("");
+  let newGameSource = $state("");
+  let newGameTags= $state("");
+  let addError = $state("");
+
+  function closeModal() {
+    showAddGameModal = false;
+    searchQuery = "";
+    searchResults = [];
+    manualMode = false;
+    newGameName = "";
+    newGameSource = "";
+    newGameTags = "";
+    addError = "";
+  }
 
   // Load categories on startup
   onMount(async () => {
@@ -87,7 +109,7 @@
     } 
   }
 
-  
+  //async function addGameEntry()  
 </script>
 
 <div class="app-layout">
@@ -140,7 +162,7 @@
     </aside>
 
     <main class="content">
-        <h2>{categories.find(c => c.category_id === selectedCategoryId)?.name ?? "Select a category"}</h2>
+        <h2 class = "text-style">{categories.find(c => c.category_id === selectedCategoryId)?.name ?? "Select a category"}</h2>
         {#if entries.length === 0}
             <p class="empty">No games in this category yet.</p>
         {:else}
@@ -163,7 +185,21 @@
                 {/each}
             </ul>
         {/if}
+          <button class="new-entry-btn" onclick={() => showAddGameModal = true}>Add new game</button>
+          {#if showAddGameModal}
+            <div class="add-game-overlay" onclick={closeModal}>
+              <div class="add-game-modal">
+                <h3>Add game to {categories.find(c => c.category_id === selectedCategoryId)?.name}</h3>
+              </div>
+            </div>
+          {/if}
     </main>
+
+    <Modal bind:showAddGameModal>
+      {#snippet header()}
+        <h2>Add a game to {categories.find(c => c.category_id === selectedCategoryId)?.name}</h2>
+      {/snippet}
+    </Modal>
 </div>
 
 <style>
@@ -309,6 +345,10 @@
 
     .content h2 {
       color: #eee
+    }
+
+    .content h2.text-style {
+      font-family: 'Courier New', Courier, monospace;
     }
 
     .empty {

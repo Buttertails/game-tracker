@@ -1,22 +1,30 @@
-use super::DuplicateInfo;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AppError {
     ValidationError(String),
-    DuplicateCategory(String),
+    DuplicateShelf(String),
     DuplicateTag(String),
-    CategoryNotFound(i64),
+    ShelfNotFound(i64),
     EntryNotFound(i64),
-    TagNotFound(String),
-    CategoryNotEmpty { category_id: i64, entry_count: i64 },
-    DuplicateGameEntry(DuplicateInfo),
+    NoteNotFound(String),
+    InProgressFull {
+        shelf_id: i64,
+        cap: u32,
+    },
+    InvalidTransition {
+        from: String,
+        to: String,
+        reason: String,
+    },
+    ConfirmationRequired(String),
     ApiUnavailable(String),
     LaunchPathNotFound(String),
     LaunchFailed(String),
     NoLaunchPath,
     DatabaseError(String),
-    InvalidDate(String),
+    SmartFillNotEligible(String),
+    SmartFillNoSlots(String),
 }
 
 impl From<rusqlite::Error> for AppError {
@@ -28,12 +36,6 @@ impl From<rusqlite::Error> for AppError {
 impl From<serde_json::Error> for AppError {
     fn from(e: serde_json::Error) -> Self {
         AppError::DatabaseError(e.to_string())
-    }
-}
-
-impl From<chrono::ParseError> for AppError {
-    fn from(e: chrono::ParseError) -> Self {
-        AppError::InvalidDate(e.to_string())
     }
 }
 
