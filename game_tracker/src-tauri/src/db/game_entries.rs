@@ -12,6 +12,7 @@ pub fn insert_entry(
     db: &Database,
     shelf_id: i64,
     name: &str,
+    status: i64,
     genre: Option<&str>,
     length_category: Option<i64>,
     release_year: Option<i32>,
@@ -23,8 +24,8 @@ pub fn insert_entry(
 ) -> Result<i64> {
     let mut stmt = db.conn.prepare(
     "INSERT INTO 
-            game_entries (shelf_id, name, genre, length_category, release_year, era, source, launch_path, ownership_status, stored_api_data) 
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10) 
+            game_entries (shelf_id, name, status, genre, length_category, release_year, era, source, launch_path, ownership_status, stored_api_data) 
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11) 
         RETURNING entry_id"
     )?;
 
@@ -32,6 +33,7 @@ pub fn insert_entry(
         params![
             shelf_id,
             name,
+            status,
             genre,
             length_category,
             release_year,

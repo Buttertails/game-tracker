@@ -123,6 +123,7 @@ pub struct ManualEntryInput {
     pub release_year: Option<i32>,
     pub source: Option<String>,
     pub launch_path: Option<String>,
+    pub ownership_status: OwnershipStatus,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -178,6 +179,14 @@ pub fn derive_era(release_year: i32) -> Era {
         y if y < 2000 => Era::Retro,
         y if y <= 2015 => Era::Modern,
         _ => Era::Recent,
+    }
+}
+
+pub fn derive_length_category(playtime: i64) -> LengthCategory {
+    match playtime {
+        p if p < 10 => LengthCategory::Short,
+        p if p <= 30 => LengthCategory::Medium,
+        _ => LengthCategory::Long,
     }
 }
 
