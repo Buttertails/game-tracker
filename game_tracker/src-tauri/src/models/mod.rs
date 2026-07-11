@@ -2,6 +2,7 @@ pub mod error;
 
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GameStatus {
@@ -279,6 +280,16 @@ impl OwnershipStatus {
             OwnershipStatus::Installed => 1,
             OwnershipStatus::NotInstalled => 2,
             OwnershipStatus::Wishlisted => 3,
+        }
+    }
+}
+
+impl fmt::Display for GameStatus {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            GameStatus::Backlog => write!(f, "Backlog"),
+            GameStatus::InProgress => write!(f, "In Progress"),
+            GameStatus::Completed => write!(f, "Completed"),
         }
     }
 }

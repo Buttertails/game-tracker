@@ -220,15 +220,19 @@ pub fn update_status(db: &Database, id: i64, new_status: GameStatus) -> Result<u
     Ok(result)
 }
 
-pub fn update_timestamps(
-    db: &Database,
-    id: i64,
-    started_at: Option<&str>,
-    completed_at: Option<&str>,
-) -> Result<usize> {
+pub fn update_started_at(db: &Database, id: i64, started_at: Option<&str>) -> Result<usize> {
     let result = db.conn.execute(
-        "UPDATE game_entries SET started_at = ?1, completed_at = ?2 WHERE entry_id = ?3",
-        params![started_at, completed_at, id],
+        "UPDATE game_entries SET started_at = ?1 WHERE entry_id = ?2",
+        params![started_at, id],
+    )?;
+
+    Ok(result)
+}
+
+pub fn update_completed_at(db: &Database, id: i64, completed_at: Option<&str>) -> Result<usize> {
+    let result = db.conn.execute(
+        "UPDATE game_entries SET completed_at = ?1 WHERE entry_id = ?2",
+        params![completed_at, id],
     )?;
 
     Ok(result)

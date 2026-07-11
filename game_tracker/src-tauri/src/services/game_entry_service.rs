@@ -1,5 +1,3 @@
-use tauri::App;
-
 use crate::db::{game_entries, shelves, tags, Database};
 use crate::models::error::AppError;
 use crate::models::{
