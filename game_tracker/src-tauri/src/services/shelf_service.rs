@@ -1,5 +1,3 @@
-use tauri::App;
-
 use crate::db::{shelves, Database};
 use crate::models::error::AppError::{self};
 use crate::models::{Shelf, ShelfSummary};
@@ -53,10 +51,12 @@ impl<'a> ShelfService<'a> {
             ));
         }
 
-        if shelves::find_shelf_by_name(self.db, trimmed)?.is_some() {
-            return Err(AppError::DuplicateShelf(
-                "Shelf name is already in use".to_string(),
-            ));
+        if let Some(existing) = shelves::find_shelf_by_name(self.db, trimmed)? {
+            if existing.shelf_id != shelf_id {
+                return Err(AppError::DuplicateShelf(
+                    "Shelf name is already in use".to_string(),
+                ));
+            }
         }
 
         let renamed_shelf = shelves::rename_shelf(self.db, shelf_id, trimmed)?;
