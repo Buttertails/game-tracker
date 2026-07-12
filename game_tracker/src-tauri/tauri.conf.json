@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "game_tracker",
+  "productName": "Lil Shelf",
   "version": "0.1.0",
-  "identifier": "com.drew.game_tracker",
+  "identifier": "com.drew.lil-shelf",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Game Backlog Tracker",
+        "title": "Lil Shelf",
         "width": 800,
         "height": 600
       }
@@ -23,6 +23,9 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all"
+    "targets": "all",
+    "icon": [
+      "icons/icon.ico"
+    ]
   }
 }
