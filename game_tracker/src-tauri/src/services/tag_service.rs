@@ -30,8 +30,8 @@ impl<'a> TagService<'a> {
         }
 
         // Check if entry exists
-        let result = game_entries::find_entry_by_id(self.db, entry_id)?;
-        if result.is_none() {
+        let result = game_entries::get_entry(self.db, entry_id);
+        if result.is_err() {
             return Err(AppError::EntryNotFound(entry_id));
         }
 
@@ -62,8 +62,8 @@ impl<'a> TagService<'a> {
         }
 
         // Check if entry exists
-        let result = game_entries::find_entry_by_id(self.db, entry_id)?;
-        if result.is_none() {
+        let result = game_entries::get_entry(self.db, entry_id);
+        if result.is_err() {
             return Err(AppError::EntryNotFound(entry_id));
         }
 

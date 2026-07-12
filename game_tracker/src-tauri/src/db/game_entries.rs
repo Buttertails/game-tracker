@@ -238,6 +238,15 @@ pub fn update_completed_at(db: &Database, id: i64, completed_at: Option<&str>) -
     Ok(result)
 }
 
+pub fn update_last_played(db: &Database, id: i64, last_played: Option<&str>) -> Result<usize> {
+    let result = db.conn.execute(
+        "UPDATE game_entries SET last_played = ?1 WHERE entry_id = ?2",
+        params![last_played, id],
+    )?;
+
+    Ok(result)
+}
+
 pub fn update_ownership_status(
     db: &Database,
     id: i64,

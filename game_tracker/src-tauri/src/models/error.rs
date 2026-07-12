@@ -8,6 +8,7 @@ pub enum AppError {
     ShelfNotFound(i64),
     EntryNotFound(i64),
     NoteNotFound(String),
+    TagNotFound(String),
     InProgressFull {
         shelf_id: i64,
         cap: u32,

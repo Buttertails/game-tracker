@@ -2,6 +2,7 @@ use crate::{
     db::{game_entries, Database},
     models::error::AppError,
 };
+use chrono::Utc;
 use std::path::Path;
 use std::process::Command;
 pub struct GameLaunchService<'a> {
@@ -35,8 +36,8 @@ impl<'a> GameLaunchService<'a> {
         };
 
         // Check entry exists
-        let entry_result = game_entries::find_entry_by_id(self.db, entry_id)?;
-        if entry_result.is_none() {
+        let entry_result = game_entries::get_entry(self.db, entry_id);
+        if entry_result.is_err() {
             return Err(AppError::EntryNotFound(entry_id));
         }
 
@@ -46,7 +47,7 @@ impl<'a> GameLaunchService<'a> {
     }
 
     pub fn launch(&self, entry_id: i64) -> Result<(), AppError> {
-        let entry_detail = game_entries::get_game_entry_detail(self.db, entry_id)?;
+        let entry_detail = game_entries::get_entry_detail(self.db, entry_id)?;
 
         let path = entry_detail.launch_path.ok_or(AppError::NoLaunchPath)?;
         let trimmed = path.trim();
@@ -58,6 +59,11 @@ impl<'a> GameLaunchService<'a> {
         self.validate_path(trimmed)?;
 
         Command::new(trimmed).spawn()?;
+        game_entries::update_last_played(
+            self.db,
+            entry_id,
+            Some(&Utc::now().format("%Y-%m-%d %H:%M:%S").to_string()),
+        )?;
         Ok(())
     }
 }
