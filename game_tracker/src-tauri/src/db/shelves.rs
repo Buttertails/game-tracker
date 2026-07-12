@@ -84,7 +84,8 @@ pub fn list_shelves_with_counts(db: &Database) -> Result<Vec<ShelfSummary>> {
 	        count(CASE WHEN g.status = 3 THEN 1 END) as completed_count
         FROM shelves as s 
         LEFT JOIN game_entries as g ON s.shelf_id = g.shelf_id
-        GROUP BY s.shelf_id, s.name;",
+        GROUP BY s.shelf_id, s.name
+        ORDER BY s.shelf_id ASC",
     )?;
 
     let shelves: Vec<ShelfSummary> = stmt

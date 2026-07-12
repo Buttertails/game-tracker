@@ -65,6 +65,7 @@ pub struct GameEntry {
     pub addition_date: DateTime<Utc>,
     pub tags: Vec<String>,
     pub last_played: Option<NaiveDate>,
+    pub background_image: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -84,6 +85,7 @@ pub struct GameEntryDetail {
     pub addition_date: DateTime<Utc>,
     pub tags: Vec<String>,
     pub last_played: Option<NaiveDate>,
+    pub background_image: Option<String>,
     pub notes: Vec<TimestampedNote>,
     pub stored_api_data: Option<serde_json::Value>,
     pub completion_duration: Option<String>,
@@ -113,6 +115,7 @@ pub struct SmartFillSuggestion {
     pub length_category: LengthCategory,
     pub era: Era,
     pub diversity_score: u32,
+    pub background_image: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

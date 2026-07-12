@@ -7,7 +7,7 @@ use super::Database;
 pub fn insert_note(db: &Database, id: i64, note: &str) -> Result<TimestampedNote> {
     let mut stmt = db
         .conn
-        .prepare("INSERT INTO game_notes(entry_id, text) VALUES (?1, ?2)")?;
+        .prepare("INSERT INTO game_notes(entry_id, text) VALUES (?1, ?2) RETURNING *")?;
 
     let note = stmt.query_row(params![id, note], |row| {
         Ok(TimestampedNote {

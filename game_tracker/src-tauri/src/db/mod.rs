@@ -56,6 +56,7 @@ impl Database {
                 addition_date TEXT NOT NULL DEFAULT (datetime('now')),
                 last_played TEXT,
                 stored_api_data TEXT,
+                background_image TEXT,
                 created_at TEXT NOT NULL DEFAULT (datetime('now')),
 
                 FOREIGN KEY (shelf_id) REFERENCES shelves(shelf_id) ON DELETE CASCADE,

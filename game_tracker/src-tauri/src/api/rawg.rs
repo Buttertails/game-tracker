@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use crate::{
     api::{RawgClient, RawgResponse},
-    models::{error::AppError, SearchResult},
+    models::{error::AppError, RawgGameData},
 };
 
 impl RawgClient {
@@ -33,7 +33,7 @@ impl RawgClient {
         }
     }
 
-    pub async fn search_games(&self, query: &str) -> Result<Vec<SearchResult>, AppError> {
+    pub async fn search_games(&self, query: &str) -> Result<Vec<RawgGameData>, AppError> {
         // Validate query is non-empty
         if query.is_empty() {
             return Err(AppError::ValidationError("Query is empty".to_string()));
@@ -50,31 +50,6 @@ impl RawgClient {
         // Parse JSON response
         let json_response: RawgResponse = body.json().await?;
 
-        // Map RawgGameData to SearchResult
-        let search_results: Vec<SearchResult> = json_response
-            .results
-            .into_iter()
-            .map(|game| SearchResult {
-                rawg_id: game.id,
-                name: game.name,
-                released: game.released,
-                rating: game.rating,
-                platforms: game
-                    .platforms
-                    .unwrap_or_default()
-                    .iter()
-                    .map(|p| p.platform.name.clone())
-                    .collect(),
-                genres: game
-                    .genres
-                    .unwrap_or_default()
-                    .iter()
-                    .map(|g| g.name.clone())
-                    .collect(),
-                background_image: game.background_image,
-            })
-            .collect();
-
-        Ok(search_results)
+        Ok(json_response.results)
     }
 }

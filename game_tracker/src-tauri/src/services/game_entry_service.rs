@@ -68,6 +68,7 @@ impl<'a> GameEntryService<'a> {
             launch_path,
             ownership_status.to_id(),
             rawg_data_json,
+            rawg_data.background_image.as_deref(),
         )?;
 
         for tag in tag_list {
@@ -132,6 +133,7 @@ impl<'a> GameEntryService<'a> {
             input.source.as_deref(),
             input.launch_path.as_deref(),
             input.ownership_status.to_id(),
+            None,
             None,
         )?;
 

@@ -30,6 +30,7 @@ thiserror = "2.0.18"
 dotenvy = "0.15.7"
 mockito = "1.7.2"
 rand = "0.10.2"
+tauri-plugin-dialog = "2"
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
 [profile.release]

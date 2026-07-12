@@ -53,6 +53,7 @@ impl<'a> SmartFillService<'a> {
                 length_category: entry.length_category.unwrap(),
                 era: derive_era(entry.release_year.unwrap()),
                 diversity_score: self.score_candidate(entry, &diversity_context),
+                background_image: entry.background_image.clone(),
             })
             .collect();
 
@@ -112,6 +113,7 @@ impl<'a> SmartFillService<'a> {
             length_category: entry.length_category.unwrap(),
             era: derive_era(entry.release_year.unwrap()),
             diversity_score: self.score_candidate(entry, &context),
+            background_image: entry.background_image.clone(),
         })
     }
 

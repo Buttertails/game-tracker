@@ -21,11 +21,12 @@ pub fn insert_entry(
     launch_path: Option<&str>,
     ownership_status: i64,
     stored_api_data: Option<serde_json::Value>,
+    background_image: Option<&str>,
 ) -> Result<i64> {
     let mut stmt = db.conn.prepare(
     "INSERT INTO 
-            game_entries (shelf_id, name, status, genre, length_category, release_year, era, source, launch_path, ownership_status, stored_api_data) 
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11) 
+            game_entries (shelf_id, name, status, genre, length_category, release_year, era, source, launch_path, ownership_status, stored_api_data, background_image) 
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12) 
         RETURNING entry_id"
     )?;
 
@@ -41,7 +42,8 @@ pub fn insert_entry(
             source,
             launch_path,
             ownership_status,
-            stored_api_data
+            stored_api_data,
+            background_image
         ],
         |row| row.get(0),
     )?;
@@ -91,6 +93,7 @@ pub fn list_entries_by_shelf(db: &Database, id: i64) -> Result<ShelfEntries> {
                 addition_date: row.get(13)?,
                 tags: Vec::<String>::new(),
                 last_played: row.get(14)?,
+                background_image: row.get(16)?,
             })
         })?
         .collect::<Result<Vec<GameEntry>>>()?;
@@ -149,6 +152,7 @@ pub fn get_entry(db: &Database, id: i64) -> Result<GameEntry> {
             addition_date: row.get(13)?,
             tags: Vec::<String>::new(),
             last_played: row.get(14)?,
+            background_image: row.get(16)?,
         })
     })?;
 
@@ -187,6 +191,7 @@ pub fn get_entry_detail(db: &Database, id: i64) -> Result<GameEntryDetail> {
             addition_date: row.get(13)?,
             tags: Vec::<String>::new(),
             last_played: row.get(14)?,
+            background_image: row.get(16)?,
             notes: Vec::<TimestampedNote>::new(),
             stored_api_data: row.get(15)?,
             completion_duration: None,
