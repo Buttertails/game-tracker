@@ -4,8 +4,8 @@ use crate::api::RawgClient;
 use crate::db::Database;
 use crate::models::error::AppError;
 use crate::models::{
-    GameEntryDetail, ManualEntryInput, OwnershipStatus, RawgGameData, SearchResult, Shelf,
-    ShelfEntries, ShelfSummary, SmartFillSuggestion, TimestampedNote,
+    GameEntryDetail, ManualEntryInput, OwnershipStatus, RawgGameData, Shelf, ShelfEntries,
+    ShelfSummary, SmartFillSuggestion, TimestampedNote,
 };
 use crate::services::game_entry_service::GameEntryService;
 use crate::services::launch_service::GameLaunchService;
