@@ -64,7 +64,7 @@ pub struct GameEntry {
     pub completed_at: Option<DateTime<Utc>>,
     pub addition_date: DateTime<Utc>,
     pub tags: Vec<String>,
-    pub last_played: Option<NaiveDate>,
+    pub last_played: Option<DateTime<Utc>>,
     pub background_image: Option<String>,
 }
 
@@ -84,7 +84,7 @@ pub struct GameEntryDetail {
     pub completed_at: Option<DateTime<Utc>>,
     pub addition_date: DateTime<Utc>,
     pub tags: Vec<String>,
-    pub last_played: Option<NaiveDate>,
+    pub last_played: Option<DateTime<Utc>>,
     pub background_image: Option<String>,
     pub notes: Vec<TimestampedNote>,
     pub stored_api_data: Option<serde_json::Value>,
