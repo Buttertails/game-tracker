@@ -431,6 +431,17 @@ function cancelSmartFill() {
   smartFillSuggestions = [];
 }
 
+async function updateLaunchPath(detailEntry: GameEntry) {
+  const selected = await open({
+    multiple: false,
+    filters: [{ name: "Executables", extensions: ["exe", "bat", "cmd", "lnk"] }],
+  });
+
+  if (selected) {
+    detailEntry.launch_path = selected;
+    await invoke("update_launch_path", {entryId: detailEntry.entry_id, path: selected});
+  }
+}
 
 </script>
 
@@ -670,6 +681,11 @@ function cancelSmartFill() {
           <p><strong>Source:</strong> {detailEntry.source ?? "Not set"}</p>
           <p><strong>Status:</strong> {formatOwnership(detailEntry.ownership_status)}</p>
           <p><strong>Started:</strong> {formatLocalDate(detailEntry.started_at) ?? "Unknown"}</p>
+          <div>
+            <strong>Launch Path:</strong>
+            <button class="update-path-btn" onclick={() => updateLaunchPath(detailEntry!)} title="Set new launch path for game">🔎</button>
+          </div>
+          <p style="font-size: 0.7rem">{detailEntry.launch_path ?? "Not set"}</p>
         </div>
 
         {#if !detailEntry.genre || !detailEntry.length_category || !detailEntry.release_year}
@@ -1458,5 +1474,16 @@ function cancelSmartFill() {
   outline: none;
 }
 
+.update-path-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: #ccc;
+}
+
+.update-path-btn:hover {
+  color: #6b1fba;
+}
 
 </style>
