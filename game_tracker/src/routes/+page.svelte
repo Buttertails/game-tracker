@@ -648,6 +648,11 @@ async function updateLaunchPath(detailEntry: GameEntry) {
             <p><strong>Release Year:</strong> {selectedBacklogEntry.release_year ?? "Not set"}</p>
             <p><strong>Source:</strong> {selectedBacklogEntry.source ?? "Not set"}</p>
             <p><strong>Status:</strong> {formatOwnership(selectedBacklogEntry.ownership_status)}</p>
+            <div>
+              <strong>Launch Path:</strong>
+              <button class="update-path-btn" onclick={() => updateLaunchPath(detailEntry!)} title="Set new launch path for game">🔎</button>
+            </div>
+            <p style="font-size: 0.7rem">{selectedBacklogEntry.launch_path ?? "Not set"}</p>
           </div>
 
           {#if !selectedBacklogEntry.genre || !selectedBacklogEntry.length_category || !selectedBacklogEntry.release_year}
@@ -831,7 +836,7 @@ async function updateLaunchPath(detailEntry: GameEntry) {
 
      <!-- Bottom Actions -->
       <div class="bottom-bar">
-        <button class="bottom-btn" onclick={() => showBacklogPicker = true}>Backlog ({shelfData?.backlog.length ?? 0})</button>
+        <button class="bottom-btn" onclick={openBacklogPicker}>Backlog ({shelfData?.backlog.length ?? 0})</button>
         <button
           class="bottom-btn smart-fill"
           onclick={triggerSmartFill}
@@ -915,8 +920,8 @@ async function updateLaunchPath(detailEntry: GameEntry) {
   }
 
   .card {
-    width: 200px;
-    height: 280px;
+    width: 320px;
+    height: 180px;
     border-radius: 8px;
     overflow: hidden;
     cursor: pointer;
@@ -1017,7 +1022,7 @@ async function updateLaunchPath(detailEntry: GameEntry) {
 
   .game-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 1rem;
 }
 
@@ -1030,8 +1035,8 @@ async function updateLaunchPath(detailEntry: GameEntry) {
 }
 
 .grid-art {
-  width: 140px;
-  height: 195px;
+  width: 200px;
+  height: 112px;
   border-radius: 6px;
   overflow: hidden;
   background: #333;
@@ -1235,8 +1240,8 @@ async function updateLaunchPath(detailEntry: GameEntry) {
 }
 
 .confirm-art {
-  width: 200px;
-  height: 280px;
+  width: 320px;
+  height: 180px;
   border-radius: 6px;
   object-fit: cover;
   background: #333;
