@@ -693,7 +693,7 @@ function cancelSmartFill() {
               {#each detailNotes as note}
                 <li>
                   <p class="note-text">{note.text}</p>
-                  <span class="note-date">{note.created_at}</span>
+                  <span class="note-date">{formatLocalDate(note.created_at)}</span>
                   <button class="note-delete" onclick={() => deleteNote(note.note_id)}>×</button>
                 </li>
               {/each}
