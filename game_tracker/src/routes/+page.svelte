@@ -443,6 +443,18 @@ async function updateLaunchPath(detailEntry: GameEntry) {
   }
 }
 
+async function undoToBacklog(entryId: number) {
+  const confirmed = confirm("Are you sure? This will clear your completion timestamps.");
+
+  await invoke("undo_completion_to_backlog", {entryId, confirmed: confirmed});
+}
+
+async function undoToInProgress(entryId: number) {
+  const confirmed = confirm("Are you sure? This will clear your completion timestamps.");
+
+  await invoke("undo_completion_to_in_progress", {entryId, confirmed: confirmed});
+}
+
 </script>
 
 <Modal bind:showModal={showBacklogPicker}>
@@ -680,11 +692,7 @@ async function updateLaunchPath(detailEntry: GameEntry) {
         <h2>{detailEntry.name}</h2>
 
         <div class="detail-meta">
-          <p><strong>Genre:</strong> {detailEntry.genre ?? "Not set"}</p>
-          <p><strong>Length:</strong> {detailEntry.length_category ?? "Not set"}</p>
-          <p><strong>Release Year:</strong> {detailEntry.release_year ?? "Not set"}</p>
-          <p><strong>Source:</strong> {detailEntry.source ?? "Not set"}</p>
-          <p><strong>Status:</strong> {formatOwnership(detailEntry.ownership_status)}</p>
+          <p><strong>Last Played:</strong> {formatLocalDate(detailEntry.last_played) ?? "Unknown"}</p>
           <p><strong>Started:</strong> {formatLocalDate(detailEntry.started_at) ?? "Unknown"}</p>
           <div>
             <strong>Launch Path:</strong>
@@ -730,16 +738,28 @@ async function updateLaunchPath(detailEntry: GameEntry) {
 
         <div class="detail-actions">
           <button class="submit-btn" onclick={completeGame}>✓ Complete</button>
-          <button class="back-btn" onclick={returnToBacklog}>Return to Backlog</button>
+          <button class="cancel-btn" onclick={returnToBacklog}>✗ Return to Backlog</button>
         </div>
       </div>
 
       <div class="detail-sidebar">
+
         <img
           class="confirm-art"
           src={detailEntry.background_image || "/placeholder.png"}
           alt={detailEntry.name}
         />
+        <div class="meta-columns">
+          <div class="column">
+            <p><strong>Genre:</strong> {detailEntry.genre ?? "Not set"}</p>
+            <p><strong>Length:</strong> {detailEntry.length_category ?? "Not set"}</p>
+            <p><strong>Release Year:</strong> {detailEntry.release_year ?? "Not set"}</p>
+          </div>
+          <div class="column">
+            <p><strong>Source:</strong> {detailEntry.source ?? "Not set"}</p>
+            <p><strong>Status:</strong> {formatOwnership(detailEntry.ownership_status)}</p>
+          </div>
+        </div>
       </div>
     </div>
   {/if}
@@ -1323,6 +1343,18 @@ async function updateLaunchPath(detailEntry: GameEntry) {
   margin-top: 0.25rem;
 }
 
+.cancel-btn {
+  padding: 0.5rem 1.2rem;
+  border-radius: 6px;
+  border: none;
+  background: #9f1414;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+  align-self: flex-start;
+  margin-top: 0.25rem;
+}
+
 .submit-btn:hover {
   background: #6b1fba;
 }
@@ -1346,10 +1378,11 @@ async function updateLaunchPath(detailEntry: GameEntry) {
 .detail-sidebar {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .detail-meta p {
+  justify-content: flex-start;
   margin: 0.2rem 0;
   font-size: 0.85rem;
   color: #ccc;
@@ -1489,6 +1522,19 @@ async function updateLaunchPath(detailEntry: GameEntry) {
 
 .update-path-btn:hover {
   color: #6b1fba;
+}
+
+.column {
+  padding: 0;
+}
+
+.meta-columns {
+  display: flex;
+  gap: 2rem;
+  font-size: 0.85rem;
+  color: #ccc;
+  justify-content: space-between;
+  width: 100%;
 }
 
 </style>
