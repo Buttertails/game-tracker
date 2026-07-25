@@ -13,7 +13,7 @@ jobs:
           node-version: 20
       - uses: dtolnay/rust-toolchain@stable  
       - run: npm install                    
-        working-directory: game-tracker/game_tracker
+        working-directory: game_tracker
       - uses: tauri-apps/tauri-action@v0    
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -21,4 +21,4 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Lil Shelf ${{ github.ref_name }}'
-          projectPath: game-tracker/game_tracker
+          projectPath: game_tracker
