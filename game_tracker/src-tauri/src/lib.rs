@@ -12,8 +12,11 @@ use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     dotenvy::dotenv().ok();
-    let api_key = std::env::var("RAWG_API_KEY").expect("RAWG_API_KEY not set");
-    let rawg_client = RawgClient::new(api_key);
+    let api_key = match option_env!("RAWG_API_KEY") {
+        Some(s) => s.to_string(),
+        None => std::env::var("RAWG_API_KEY").expect("RAWG_API_KEY not set"),
+    };
+    let rawg_client = RawgClient::new(api_key.to_string());
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
