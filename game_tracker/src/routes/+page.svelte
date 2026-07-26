@@ -88,6 +88,12 @@
   let newShelfName = $state("");
   let shelfError = $state("");
   let appUpdateAvailabe = $state(false);
+  let editingMetadata = $state(false);
+  let editGenre = $state("");
+  let editLength = $state("");
+  let editYear = $state("");
+  let editSource = $state("");
+  let editOwnership = $state("");
 
 
 
@@ -486,6 +492,16 @@ function handleGlobalKeydown(e: KeyboardEvent) {
   }
 }
 
+function startEditingMetadata() {
+  editGenre = detailEntry?.genre ?? "";
+  editLength = detailEntry?.length_category ?? "";
+  editYear = detailEntry?.release_year?.toString() ?? "";
+  editSource = detailEntry?.source ?? "";
+  editOwnership = detailEntry?.ownership_status ?? "";
+
+  editingMetadata = true;
+}
+
 </script>
 
 <svelte:window onkeydown={handleGlobalKeydown} />
@@ -696,9 +712,10 @@ function handleGlobalKeydown(e: KeyboardEvent) {
             <p><strong>Release Year:</strong> {selectedBacklogEntry.release_year ?? "Not set"}</p>
             <p><strong>Source:</strong> {selectedBacklogEntry.source ?? "Not set"}</p>
             <p><strong>Status:</strong> {formatOwnership(selectedBacklogEntry.ownership_status)}</p>
+
             <div>
               <strong>Launch Path:</strong>
-              <button class="update-path-btn" onclick={() => updateLaunchPath(detailEntry!)} title="Set new launch path for game">🔎</button>
+              <button class="update-btn" onclick={() => updateLaunchPath(detailEntry!)} title="Set new launch path for game">🔎</button>
             </div>
             <p style="font-size: 0.7rem">{selectedBacklogEntry.launch_path ?? "Not set"}</p>
           </div>
@@ -732,13 +749,17 @@ function handleGlobalKeydown(e: KeyboardEvent) {
           <p><strong>Started:</strong> {formatLocalDate(detailEntry.started_at) ?? "Unknown"}</p>
           <div>
             <strong>Launch Path:</strong>
-            <button class="update-path-btn" onclick={() => updateLaunchPath(detailEntry!)} title="Set new launch path for game">🔎</button>
+            <button class="update-btn" onclick={() => updateLaunchPath(detailEntry!)} title="Set new launch path for game">🔎</button>
           </div>
           <p style="font-size: 0.7rem">{detailEntry.launch_path ?? "Not set"}</p>
         </div>
 
         {#if !detailEntry.genre || !detailEntry.length_category || !detailEntry.release_year}
-          <p class="warning-note">⚠ Missing metadata — not eligible for Smart Fill</p>
+        <div>
+          <p class="warning-note">⚠ Missing metadata — not eligible for Smart Fill
+            <button class=update-btn title="Manually set missing data" onclick={() => {editingMetadata = !editingMetadata}}>🔎</button>
+          </p>
+        </div>
         {/if}
 
         <!-- Notes section -->
@@ -786,15 +807,72 @@ function handleGlobalKeydown(e: KeyboardEvent) {
           alt={detailEntry.name}
         />
         <div class="meta-columns">
-          <div class="column">
-            <p><strong>Genre:</strong> {detailEntry.genre ?? "Not set"}</p>
-            <p><strong>Length:</strong> {detailEntry.length_category ?? "Not set"}</p>
-            <p><strong>Release Year:</strong> {detailEntry.release_year ?? "Not set"}</p>
-          </div>
-          <div class="column">
-            <p><strong>Source:</strong> {detailEntry.source ?? "Not set"}</p>
-            <p><strong>Status:</strong> {formatOwnership(detailEntry.ownership_status)}</p>
-          </div>
+          {#if editingMetadata}
+            <div class="column">
+              <p>
+                <strong>Genre:</strong>
+                <select bind:value={manualGenre}>
+                  <option value="">{detailEntry.genre}</option>
+                  <option value="Action">Action</option>
+                  <option value="RPG">RPG</option>
+                  <option value="Adventure">Adventure</option>
+                  <option value="Puzzle">Puzzle</option>
+                  <option value="Strategy">Strategy</option>
+                  <option value="Platformer">Platformer</option>
+                  <option value="Horror">Horror</option>
+                  <option value="FPS">FPS</option>
+                  <option value="Simulation">Simulation</option>
+                  <option value="Sports">Sports</option>
+                  <option value="Racing">Racing</option>
+                  <option value="Fighting">Fighting</option>
+                  <option value="Metroidvania">Metroidvania</option>
+                  <option value="Roguelite">Roguelite</option>
+                </select> 
+              </p>
+              <p>
+                <strong>Length:</strong>
+                <select bind:value={manualLength}>
+                  <option value="">{detailEntry.length_category}</option>
+                  <option value="Short">Short (under 10 hours)</option>
+                  <option value="Medium">Medium (10-30 hours)</option>
+                  <option value="Long">Long (over 30 hours)</option>
+                </select>
+              </p>
+              <p>
+                <strong>Release Year:</strong>
+                <input type="number" bind:value={manualYear} placeholder={detailEntry.release_year!.toString()} min="1950" max="2100" />
+              </p>
+              <div class="edit-actions">
+                <button class="edit-submit-btn" title="Save changes">✓ Save</button>
+                <button class="edit-cancel-btn" title="Cancel changes" onclick={() => {if (editingMetadata) {editingMetadata = false;}}}>✗ Cancel</button>
+              </div>
+            </div>
+            <div class="column">
+              <p>
+                <strong>Source:</strong>
+                <input type="text" bind:value={manualSource} placeholder={detailEntry.source} />
+              </p>
+              <p>
+                <strong>Status:</strong>
+                <select bind:value={addOwnership}>
+                  <option value="NotInstalled">Not Installed</option>
+                  <option value="Installed">Installed</option>
+                  <option value="Wishlisted">Wishlisted</option>
+              </select>
+              </p>
+            </div>
+          {:else}
+            <div class="column">
+              <p><strong>Genre:</strong> {detailEntry.genre ?? "Not set"}</p>
+              <p><strong>Length:</strong> {detailEntry.length_category ?? "Not set"}</p>
+              <p><strong>Release Year:</strong> {detailEntry.release_year ?? "Not set"}</p>
+            </div>
+            <div class="column">
+              <p><strong>Source:</strong> {detailEntry.source ?? "Not set"}</p>
+              <p><strong>Status:</strong> {formatOwnership(detailEntry.ownership_status)}</p> 
+              <button class="edit-btn" title="Edit metadata" onclick={() => {if (!editingMetadata) {editingMetadata = true;}}}>✏️ Edit</button>
+            </div>
+          {/if}
         </div>
       </div>
     </div>
@@ -1429,7 +1507,7 @@ function handleGlobalKeydown(e: KeyboardEvent) {
 .detail-sidebar {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
 }
 
 .detail-meta p {
@@ -1563,7 +1641,7 @@ function handleGlobalKeydown(e: KeyboardEvent) {
   outline: none;
 }
 
-.update-path-btn {
+.update-btn {
   background: none;
   border: none;
   padding: 0;
@@ -1600,16 +1678,59 @@ function handleGlobalKeydown(e: KeyboardEvent) {
   justify-content: flex-end;
 }
 
-.warning-game-name {
-  font-size: 0.95rem;
-  font-weight: 600;
-  text-align: center;
-  margin: 0;
-  color: #f5a623;
-  background: rgba(245, 166, 35, 0.1);
-  padding: 0.4rem 0.6rem;
+.edit-btn {
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  border: none;
+  background: #5e5d5d;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+  align-self: flex-start;
+}
+
+.edit-btn:hover {
+  background: #4b4b4b;
+}
+
+.edit-cancel-btn {
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  border: none;
+  background: #9f1414;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+  align-self: flex-start;
+}
+
+.edit-submit-btn {
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  border: none;
+  background: #4d148e;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+  align-self: flex-start;
+}
+
+.meta-columns input,
+.meta-columns select {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 0.85rem;
+  padding: 0.1rem 0.3rem;
   border-radius: 4px;
-  border: 2px none #f5a623;
+  border: 1px solid #444;
+  background: #1a1a1a;
+  color: #eee;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.2rem;
 }
 
 </style>
