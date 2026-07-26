@@ -2,7 +2,7 @@
   import { invoke } from "@tauri-apps/api/core";
   import { onMount } from "svelte";
   import Modal from "../lib/Modal.svelte";
-  import {open} from "@tauri-apps/plugin-dialog";
+  import {open, ask} from "@tauri-apps/plugin-dialog";
 
   interface ShelfSummary {
     shelf_id: number;
@@ -384,7 +384,7 @@ async function createShelf() {
 }
 
 async function deleteShelf(shelfId: number) {
-  const confirmed = confirm("Delete this shelf and all of its games? The data will be permanently lost.");
+  const confirmed = await ask('Delete this shelf and all of its games? The data will be permanently lost.', {title: 'Confirm', kind: 'warning'});
   if (!confirmed) return;
   try {
     await invoke("delete_shelf", { shelfId, confirmed: true });
@@ -444,13 +444,13 @@ async function updateLaunchPath(detailEntry: GameEntry) {
 }
 
 async function undoToBacklog(entryId: number) {
-  const confirmed = confirm("Are you sure? This will clear your completion timestamps.");
+  const confirmed = await ask("Are you sure? This will clear your completion timestamps.", {title: "Confirm", kind: "warning"});
 
   await invoke("undo_completion_to_backlog", {entryId, confirmed: confirmed});
 }
 
 async function undoToInProgress(entryId: number) {
-  const confirmed = confirm("Are you sure? This will clear your completion timestamps.");
+  const confirmed = await ask("Are you sure? This will clear your completion timestamps.", {title: "Confirm", kind: "warning"});
 
   await invoke("undo_completion_to_in_progress", {entryId, confirmed: confirmed});
 }
