@@ -58,8 +58,7 @@
   let activeShelfId = $state<number | null>(null);
   let shelfData = $state<ShelfEntries | null>(null);
   let showBacklogPicker = $state(false);
-  let backlogView = $state<"grid" | "detail" | "add">("grid");
-  let selectedBacklogEntry = $state<GameEntry | null>(null);
+  let backlogView = $state<"grid" | "add">("grid");
   let searchQuery = $state("");
   let searchResults = $state<RawgGameData[]>([]);
   let searchLoading = $state(false);
@@ -119,23 +118,19 @@
 
   async function openBacklogPicker() {
     backlogView = "grid";
-    selectedBacklogEntry = null;
+    detailEntry = null;
     showBacklogPicker = true;
-  }
-
-  function viewBacklogDetail(entry: GameEntry) {
-    selectedBacklogEntry = entry;
-    backlogView = "detail";
   }
 
   function backToGrid() {
     backlogView = "grid";
-    selectedBacklogEntry = null;
+    detailEntry = null;
   }
 
   async function startGame(entryId: number) {
     try {
       await invoke("move_to_in_progress", {entryId});
+      showDetailModal = false;
       showBacklogPicker = false;
       await loadShelf(activeShelfId!);
     } catch (error:any) {
@@ -195,13 +190,13 @@
 
     let input: any = {
       name: manualName,
-      shelfId: activeShelfId,
+      shelf_id: activeShelfId,
       genre: manualGenre.trim() || null,
       lengthCategory: manualLength || null,
       releaseYear: manualYear ? parseInt(manualYear) : null,
       source: manualSource.trim() || null,
       launchPath: null,
-      ownershipStatus: "NotInstalled",
+      ownership_status: "NotInstalled",
     };
 
     try {
@@ -263,8 +258,10 @@ async function browseLaunchPath() {
 }
 
 async function openDetail(entry: GameEntry) {
+  showBacklogPicker = false;
   detailEntry = entry;
   showDetailModal = true;
+  editingMetadata = false;
   detailError = "";
   newNoteText = "";
   // Load notes for this entry
@@ -297,23 +294,23 @@ async function returnToBacklog() {
   }
 }
 
-async function addNote() {
-  if (!detailEntry || !newNoteText.trim()) return;
+async function addNote(entryId: number) {
+  if (!newNoteText.trim()) return;
   try {
-    await invoke("add_note", { entryId: detailEntry.entry_id, text: newNoteText });
+    await invoke("add_note", { entryId, text: newNoteText });
     newNoteText = "";
-    detailNotes = await invoke("get_notes", { entryId: detailEntry.entry_id });
+    detailNotes = await invoke("get_notes", { entryId });
   } catch (error: any) {
     detailError = typeof error === "string" ? error : JSON.stringify(error);
   }
 }
 
-async function deleteNote(noteId: number) {
+async function deleteNote(noteId: number, entryId: number) {
   try {
     await invoke("delete_note", { noteId });
-    if (detailEntry) {
-      detailNotes = await invoke("get_notes", { entryId: detailEntry.entry_id });
-    }
+    
+    detailNotes = await invoke("get_notes", { entryId });
+    
   } catch (error: any) {
     detailError = typeof error === "string" ? error : JSON.stringify(error);
   }
@@ -502,8 +499,7 @@ function startEditingMetadata() {
   editingMetadata = true;
 }
 
-async function saveMetadata() {
-  if (!detailEntry) return;
+async function saveMetadata(entryId: number) {
 
   const genre = editGenre.trim() || null;
   const length_category = editLength || null;
@@ -511,14 +507,14 @@ async function saveMetadata() {
   const source = editSource.trim() || null;
 
   await invoke("update_entry_metadata", {
-    entryId: detailEntry.entry_id,
+    entryId,
     genre,
     lengthCategory: length_category,
     releaseYear: release_year,
     source,
   });
 
-  detailEntry = await invoke("get_game_entry", {entryId: detailEntry.entry_id});
+  detailEntry = await invoke("get_game_entry", {entryId});
   await loadShelf(activeShelfId!);
   editingMetadata = false;
 }
@@ -526,13 +522,119 @@ async function saveMetadata() {
 async function deleteEntry(entryId: number) {
   await invoke("delete_game_entry", {entryId});
   await loadShelf(activeShelfId!);
-  selectedBacklogEntry = null;
-  backlogView = "grid";
+  detailEntry = null;
+  showDetailModal = false;
 }
 
 </script>
 
 <svelte:window onkeydown={handleGlobalKeydown} />
+
+{#snippet detailSidebar(entry: GameEntry)}
+  <div class="detail-sidebar">
+    <img
+      class="confirm-art"
+      src={entry.background_image || "/placeholder.png"}
+      alt={entry.name}
+    />
+    <div class="meta-columns">
+      {#if editingMetadata}
+        <div class="column">
+          <p>
+            <strong>Genre:</strong>
+            <select bind:value={editGenre}>
+              <option value="">{entry.genre}</option>
+              <option value="Action">Action</option>
+              <option value="RPG">RPG</option>
+              <option value="Adventure">Adventure</option>
+              <option value="Puzzle">Puzzle</option>
+              <option value="Strategy">Strategy</option>
+              <option value="Platformer">Platformer</option>
+              <option value="Horror">Horror</option>
+              <option value="FPS">FPS</option>
+              <option value="Simulation">Simulation</option>
+              <option value="Sports">Sports</option>
+              <option value="Racing">Racing</option>
+              <option value="Fighting">Fighting</option>
+              <option value="Metroidvania">Metroidvania</option>
+              <option value="Roguelite">Roguelite</option>
+            </select> 
+          </p>
+          <p>
+            <strong>Length:</strong>
+            <select bind:value={editLength}>
+              <option value="">{entry.length_category}</option>
+              <option value="Short">Short (under 10 hours)</option>
+              <option value="Medium">Medium (10-30 hours)</option>
+              <option value="Long">Long (over 30 hours)</option>
+            </select>
+          </p>
+          <p>
+            <strong>Release Year:</strong>
+            <input type="number" bind:value={editYear} placeholder={entry.release_year!.toString()} min="1950" max="2100" />
+          </p>
+          <div class="edit-actions">
+            <button class="edit-submit-btn" title="Save changes" onclick={() => saveMetadata(detailEntry?.entry_id!)}>✓ Save</button>
+            <button class="edit-cancel-btn" title="Cancel changes" onclick={() => {if (editingMetadata) {editingMetadata = false;}}}>✗ Cancel</button>
+          </div>
+        </div>
+        <div class="column">
+          <p>
+            <strong>Source:</strong>
+            <input type="text" bind:value={editSource} placeholder={entry.source} />
+          </p>
+          <p>
+            <strong>Status:</strong>
+            <select bind:value={editOwnership}>
+              <option value="NotInstalled">Not Installed</option>
+              <option value="Installed">Installed</option>
+              <option value="Wishlisted">Wishlisted</option>
+          </select>
+          </p>
+        </div>
+      {:else}
+        <div class="column">
+          <p><strong>Genre:</strong> {entry.genre ?? "Not set"}</p>
+          <p><strong>Length:</strong> {entry.length_category ?? "Not set"}</p>
+          <p><strong>Release Year:</strong> {entry.release_year ?? "Not set"}</p>
+        </div>
+        <div class="column">
+          <p><strong>Source:</strong> {entry.source ?? "Not set"}</p>
+          <p><strong>Status:</strong> {formatOwnership(entry.ownership_status)}</p> 
+          <button class="edit-btn" title="Edit metadata" onclick={startEditingMetadata}>✏️ Edit</button>
+        </div>
+      {/if}
+    </div>
+  </div>
+{/snippet}
+
+{#snippet notesSection(entryId: number)}
+  <div class="notes-section">
+    <h3>Notes</h3>
+    <div class="note-input-row">
+      <input
+        type="text"
+        placeholder="Add a note..."
+        bind:value={newNoteText}
+        onkeydown={(e) => e.key === "Enter" && addNote(entryId!)}
+      />
+      <button class="submit-btn" onclick={() => addNote(entryId!)}>Add</button>
+    </div>
+    {#if detailNotes.length > 0}
+      <ul class="notes-list">
+        {#each detailNotes as note}
+          <li>
+            <p class="note-text">{note.text}</p>
+            <span class="note-date">{formatLocalDate(note.created_at)}</span>
+            <button class="note-delete" onclick={() => deleteNote(note.note_id, entryId!)}>×</button>
+          </li>
+        {/each}
+      </ul>
+    {:else}
+      <p class="meta">No notes yet.</p>
+    {/if}
+  </div>
+{/snippet}
 
 <Modal bind:showModal={showBacklogPicker} >
   {#if backlogView === "grid"}
@@ -548,7 +650,7 @@ async function deleteEntry(entryId: number) {
 
       <!-- Game cards -->
       {#each shelfData?.backlog ?? [] as entry}
-        <div class="grid-card" onclick={() => viewBacklogDetail(entry)}>
+        <div class="grid-card" onclick={() => openDetail(entry)}>
           <div class="grid-art">
             <img src={entry.background_image || "/placeholder.png"} alt={entry.name} />
           </div>
@@ -726,43 +828,6 @@ async function deleteEntry(entryId: number) {
         <button class="submit-btn" onclick={addManually}>Add to Backlog</button>
       </div>
     {/if}
-  {:else}
-    <!-- Backlog Detail View -->
-    <button class="back-btn" onclick={backToGrid}>← Back</button>
-    {#if selectedBacklogEntry}
-      <div class="detail-layout">
-        <div class="detail-main">
-          <h2>{selectedBacklogEntry.name}</h2>
-
-          <div class="detail-meta">
-            <p><strong>Genre:</strong> {selectedBacklogEntry.genre ?? "Not set"}</p>
-            <p><strong>Length:</strong> {selectedBacklogEntry.length_category ?? "Not set"}</p>
-            <p><strong>Release Year:</strong> {selectedBacklogEntry.release_year ?? "Not set"}</p>
-            <p><strong>Source:</strong> {selectedBacklogEntry.source ?? "Not set"}</p>
-            <p><strong>Status:</strong> {formatOwnership(selectedBacklogEntry.ownership_status)}</p>
-
-            <div>
-              <strong>Launch Path:</strong>
-              <button class="update-btn" onclick={() => updateLaunchPath(detailEntry!)} title="Set new launch path for game">🔎</button>
-            </div>
-            <p style="font-size: 0.7rem">{selectedBacklogEntry.launch_path ?? "Not set"}</p>
-          </div>
-
-          {#if !selectedBacklogEntry.genre || !selectedBacklogEntry.length_category || !selectedBacklogEntry.release_year}
-            <p class="warning-note">⚠ Missing metadata — not eligible for Smart Fill</p>
-          {/if}
-
-          <div class="detail-actions">
-            <button class="submit-btn" onclick={() => startGame(selectedBacklogEntry!.entry_id)}>▶ Start Playing</button>
-            <button class="cancel-btn" onclick={() => deleteEntry(selectedBacklogEntry!.entry_id)}>✗ Remove</button>
-          </div>
-        </div>
-
-        <div class="detail-sidebar">
-          <img class="confirm-art" src={selectedBacklogEntry.background_image || "/placeholder.png"} alt={selectedBacklogEntry.name} />
-        </div>
-      </div>
-    {/if}
   {/if}
 
 </Modal>
@@ -774,13 +839,15 @@ async function deleteEntry(entryId: number) {
         <h2>{detailEntry.name}</h2>
 
         <div class="detail-meta">
-          <p><strong>Last Played:</strong> {formatLocalDate(detailEntry.last_played) ?? "Unknown"}</p>
-          <p><strong>Started:</strong> {formatLocalDate(detailEntry.started_at) ?? "Unknown"}</p>
+          {#if detailEntry.status === "InProgress"}
+            <p><strong>Last Played:</strong> {formatLocalDate(detailEntry.last_played) ?? "Unknown"}</p>
+            <p><strong>Started:</strong> {formatLocalDate(detailEntry.started_at) ?? "Unknown"}</p>
+          {/if}
           <div>
             <strong>Launch Path:</strong>
             <button class="update-btn" onclick={() => updateLaunchPath(detailEntry!)} title="Set new launch path for game">🔎</button>
           </div>
-          <p style="font-size: 0.7rem">{detailEntry.launch_path ?? "Not set"}</p>
+          <p style="font-size: 0.7rem">{detailEntry.launch_path ?? "Not set"}<button class="note-delete" title="Clear launch path">×</button></p>
         </div>
 
         {#if !detailEntry.genre || !detailEntry.length_category || !detailEntry.release_year}
@@ -792,118 +859,24 @@ async function deleteEntry(entryId: number) {
         {/if}
 
         <!-- Notes section -->
-        <div class="notes-section">
-          <h3>Notes</h3>
-          <div class="note-input-row">
-            <input
-              type="text"
-              placeholder="Add a note..."
-              bind:value={newNoteText}
-              onkeydown={(e) => e.key === "Enter" && addNote()}
-            />
-            <button class="submit-btn" onclick={addNote}>Add</button>
-          </div>
-          {#if detailNotes.length > 0}
-            <ul class="notes-list">
-              {#each detailNotes as note}
-                <li>
-                  <p class="note-text">{note.text}</p>
-                  <span class="note-date">{formatLocalDate(note.created_at)}</span>
-                  <button class="note-delete" onclick={() => deleteNote(note.note_id)}>×</button>
-                </li>
-              {/each}
-            </ul>
-          {:else}
-            <p class="meta">No notes yet.</p>
-          {/if}
-        </div>
+        {@render notesSection(detailEntry!.entry_id)}
 
         {#if detailError}
           <p class="error-msg">{detailError}</p>
         {/if}
 
         <div class="detail-actions">
-          <button class="submit-btn" onclick={completeGame}>✓ Complete</button>
-          <button class="cancel-btn" onclick={returnToBacklog}>✗ Return to Backlog</button>
+          {#if detailEntry.status === "Backlog"}
+            <button class="submit-btn" onclick={() => startGame(detailEntry!.entry_id)}>▶ Start Playing</button>
+            <button class="cancel-btn" onclick={() => deleteEntry(detailEntry!.entry_id)}>✗ Remove</button>
+          {:else if detailEntry.status === "InProgress"}
+            <button class="submit-btn" onclick={completeGame}>✓ Complete</button>
+            <button class="cancel-btn" onclick={returnToBacklog}>✗ Return to Backlog</button>
+          {/if}  
         </div>
       </div>
 
-      <div class="detail-sidebar">
-
-        <img
-          class="confirm-art"
-          src={detailEntry.background_image || "/placeholder.png"}
-          alt={detailEntry.name}
-        />
-        <div class="meta-columns">
-          {#if editingMetadata}
-            <div class="column">
-              <p>
-                <strong>Genre:</strong>
-                <select bind:value={editGenre}>
-                  <option value="">{detailEntry.genre}</option>
-                  <option value="Action">Action</option>
-                  <option value="RPG">RPG</option>
-                  <option value="Adventure">Adventure</option>
-                  <option value="Puzzle">Puzzle</option>
-                  <option value="Strategy">Strategy</option>
-                  <option value="Platformer">Platformer</option>
-                  <option value="Horror">Horror</option>
-                  <option value="FPS">FPS</option>
-                  <option value="Simulation">Simulation</option>
-                  <option value="Sports">Sports</option>
-                  <option value="Racing">Racing</option>
-                  <option value="Fighting">Fighting</option>
-                  <option value="Metroidvania">Metroidvania</option>
-                  <option value="Roguelite">Roguelite</option>
-                </select> 
-              </p>
-              <p>
-                <strong>Length:</strong>
-                <select bind:value={editLength}>
-                  <option value="">{detailEntry.length_category}</option>
-                  <option value="Short">Short (under 10 hours)</option>
-                  <option value="Medium">Medium (10-30 hours)</option>
-                  <option value="Long">Long (over 30 hours)</option>
-                </select>
-              </p>
-              <p>
-                <strong>Release Year:</strong>
-                <input type="number" bind:value={editYear} placeholder={detailEntry.release_year!.toString()} min="1950" max="2100" />
-              </p>
-              <div class="edit-actions">
-                <button class="edit-submit-btn" title="Save changes" onclick={saveMetadata}>✓ Save</button>
-                <button class="edit-cancel-btn" title="Cancel changes" onclick={() => {if (editingMetadata) {editingMetadata = false;}}}>✗ Cancel</button>
-              </div>
-            </div>
-            <div class="column">
-              <p>
-                <strong>Source:</strong>
-                <input type="text" bind:value={editSource} placeholder={detailEntry.source} />
-              </p>
-              <p>
-                <strong>Status:</strong>
-                <select bind:value={editOwnership}>
-                  <option value="NotInstalled">Not Installed</option>
-                  <option value="Installed">Installed</option>
-                  <option value="Wishlisted">Wishlisted</option>
-              </select>
-              </p>
-            </div>
-          {:else}
-            <div class="column">
-              <p><strong>Genre:</strong> {detailEntry.genre ?? "Not set"}</p>
-              <p><strong>Length:</strong> {detailEntry.length_category ?? "Not set"}</p>
-              <p><strong>Release Year:</strong> {detailEntry.release_year ?? "Not set"}</p>
-            </div>
-            <div class="column">
-              <p><strong>Source:</strong> {detailEntry.source ?? "Not set"}</p>
-              <p><strong>Status:</strong> {formatOwnership(detailEntry.ownership_status)}</p> 
-              <button class="edit-btn" title="Edit metadata" onclick={startEditingMetadata}>✏️ Edit</button>
-            </div>
-          {/if}
-        </div>
-      </div>
+      {@render detailSidebar(detailEntry!)}
     </div>
   {/if}
 </Modal>
