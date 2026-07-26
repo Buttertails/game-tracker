@@ -384,7 +384,7 @@ async function createShelf() {
 }
 
 async function deleteShelf(shelfId: number) {
-  const confirmed = confirm("Delete this shelf and all its games?");
+  const confirmed = confirm("Delete this shelf and all of its games? The data will be permanently lost.");
   if (!confirmed) return;
   try {
     await invoke("delete_shelf", { shelfId, confirmed: true });
@@ -792,7 +792,6 @@ async function undoToInProgress(entryId: number) {
         class="tab"
         class:active={activeShelfId === shelf.shelf_id}
         onclick={() => loadShelf(shelf.shelf_id)}
-        oncontextmenu={(e) => { e.preventDefault(); deleteShelf(shelf.shelf_id); }}
       >
         {shelf.name}
       </button>
@@ -814,8 +813,6 @@ async function undoToInProgress(entryId: number) {
       <button class="tab add-tab" onclick={() => showNewShelfInput = true}>+</button>
     {/if}
   </div>
-
-
 
     <!-- In-Progress Cards -->
      <div class="cards-area">
@@ -856,6 +853,9 @@ async function undoToInProgress(entryId: number) {
 
      <!-- Bottom Actions -->
       <div class="bottom-bar">
+        <div class="side-area">
+          <button class="cancel-btn" onclick={() => deleteShelf(shelfData?.shelf.shelf_id!)}>Delete Shelf</button>
+        </div>
         <button class="bottom-btn" onclick={openBacklogPicker}>Backlog ({shelfData?.backlog.length ?? 0})</button>
         <button
           class="bottom-btn smart-fill"
@@ -865,6 +865,9 @@ async function undoToInProgress(entryId: number) {
           🎲 Smart Fill
         </button>
         <button class="bottom-btn" onclick={() => showCompletedModal = true}>Completed ({shelfData?.completed.length ?? 0})</button>
+        <div class="side-area">
+
+        </div>
       </div>
 
       {#if smartFillMode && smartFillSuggestions.length > 0}
@@ -1535,6 +1538,12 @@ async function undoToInProgress(entryId: number) {
   color: #ccc;
   justify-content: space-between;
   width: 100%;
+}
+
+.side-area {
+  flex: 1;
+  display: flex;
+  justify-content: flex-start;
 }
 
 </style>
