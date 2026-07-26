@@ -1,8 +1,8 @@
 use crate::db::{game_entries, shelves, tags, Database};
 use crate::models::error::AppError;
 use crate::models::{
-    derive_era, derive_length_category, GameEntryDetail, GameStatus, ManualEntryInput,
-    OwnershipStatus, RawgGameData, ShelfEntries,
+    derive_era, derive_length_category, GameEntryDetail, GameStatus, LengthCategory,
+    ManualEntryInput, OwnershipStatus, RawgGameData, ShelfEntries,
 };
 pub struct GameEntryService<'a> {
     db: &'a Database,
@@ -193,6 +193,69 @@ impl<'a> GameEntryService<'a> {
         }
 
         let result = game_entries::update_launch_path(self.db, entry_id, new_path)?;
+        if result == 0 {
+            return Err(AppError::EntryNotFound(entry_id));
+        };
+
+        Ok(())
+    }
+
+    pub fn update_entry_metadata(
+        &self,
+        entry_id: i64,
+        genre: Option<&str>,
+        length_category: Option<LengthCategory>,
+        release_year: Option<i32>,
+        source: Option<&str>,
+    ) -> Result<(), AppError> {
+        // validate release year between 1950-2100
+        if let Some(year) = release_year {
+            if year < 1950 || year > 2100 {
+                return Err(AppError::ValidationError(
+                    "Release year must be between 1950 and 2100".to_string(),
+                ));
+            }
+        }
+
+        // validate length category value
+        let length_category_id = length_category.map(|lc| lc.to_id());
+
+        // validate genre non-empty
+        if let Some(g) = genre {
+            if g.trim().is_empty() {
+                return Err(AppError::ValidationError(
+                    "A valid genre is required".to_string(),
+                ));
+            }
+        }
+
+        // validate source length 1-100
+        if let Some(s) = source {
+            if s.trim().is_empty() {
+                return Err(AppError::ValidationError(
+                    "A valid source is required".to_string(),
+                ));
+            }
+
+            if s.len() > 100 {
+                return Err(AppError::ValidationError(
+                    "Source name must be less than 100 characters".to_string(),
+                ));
+            }
+        }
+
+        // derive era from release year
+        let era_id = release_year.map(|y| derive_era(y).to_id());
+
+        let result = game_entries::update_entry_metadata(
+            self.db,
+            entry_id,
+            genre,
+            length_category_id,
+            release_year,
+            era_id,
+            source,
+        )?;
         if result == 0 {
             return Err(AppError::EntryNotFound(entry_id));
         };

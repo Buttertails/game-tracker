@@ -274,13 +274,19 @@ pub fn update_launch_path(db: &Database, id: i64, new_path: Option<&str>) -> Res
     Ok(result)
 }
 
-pub fn update_entry_metadata(db: &Database, id: i64, metadata: &str) -> Result<usize> {
-    let result = db.conn.execute(
-        "UPDATE game_entries SET stored_api_data = ?1 WHERE entry_id = ?2",
-        params![metadata, id],
-    )?;
-
-    Ok(result)
+pub fn update_entry_metadata(
+    db: &Database,
+    id: i64,
+    genre: Option<&str>,
+    length_category: Option<i64>,
+    release_year: Option<i32>,
+    era: Option<i64>,
+    source: Option<&str>,
+) -> Result<usize> {
+    db.conn.execute(
+        "UPDATE game_entries SET genre = ?1, length_category = ?2, release_year = ?3, era = ?4, source = ?5 WHERE entry_id = ?6",
+        params![genre, length_category, release_year, era, source, id],
+    )
 }
 
 pub fn count_in_progress(db: &Database, id: i64) -> Result<i64> {

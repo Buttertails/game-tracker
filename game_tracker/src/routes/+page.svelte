@@ -502,6 +502,34 @@ function startEditingMetadata() {
   editingMetadata = true;
 }
 
+async function saveMetadata() {
+  if (!detailEntry) return;
+
+  const genre = editGenre.trim() || null;
+  const length_category = editLength || null;
+  const release_year = editYear ? parseInt(editYear) : null;
+  const source = editSource.trim() || null;
+
+  await invoke("update_entry_metadata", {
+    entryId: detailEntry.entry_id,
+    genre,
+    lengthCategory: length_category,
+    releaseYear: release_year,
+    source,
+  });
+
+  detailEntry = await invoke("get_game_entry", {entryId: detailEntry.entry_id});
+  await loadShelf(activeShelfId!);
+  editingMetadata = false;
+}
+
+async function deleteEntry(entryId: number) {
+  await invoke("delete_game_entry", {entryId});
+  await loadShelf(activeShelfId!);
+  selectedBacklogEntry = null;
+  backlogView = "grid";
+}
+
 </script>
 
 <svelte:window onkeydown={handleGlobalKeydown} />
@@ -726,6 +754,7 @@ function startEditingMetadata() {
 
           <div class="detail-actions">
             <button class="submit-btn" onclick={() => startGame(selectedBacklogEntry!.entry_id)}>▶ Start Playing</button>
+            <button class="cancel-btn" onclick={() => deleteEntry(selectedBacklogEntry!.entry_id)}>✗ Remove</button>
           </div>
         </div>
 
@@ -757,7 +786,7 @@ function startEditingMetadata() {
         {#if !detailEntry.genre || !detailEntry.length_category || !detailEntry.release_year}
         <div>
           <p class="warning-note">⚠ Missing metadata — not eligible for Smart Fill
-            <button class=update-btn title="Manually set missing data" onclick={() => {editingMetadata = !editingMetadata}}>🔎</button>
+            <button class=update-btn title="Manually set missing data" onclick={startEditingMetadata}>✏️</button>
           </p>
         </div>
         {/if}
@@ -811,7 +840,7 @@ function startEditingMetadata() {
             <div class="column">
               <p>
                 <strong>Genre:</strong>
-                <select bind:value={manualGenre}>
+                <select bind:value={editGenre}>
                   <option value="">{detailEntry.genre}</option>
                   <option value="Action">Action</option>
                   <option value="RPG">RPG</option>
@@ -831,7 +860,7 @@ function startEditingMetadata() {
               </p>
               <p>
                 <strong>Length:</strong>
-                <select bind:value={manualLength}>
+                <select bind:value={editLength}>
                   <option value="">{detailEntry.length_category}</option>
                   <option value="Short">Short (under 10 hours)</option>
                   <option value="Medium">Medium (10-30 hours)</option>
@@ -840,21 +869,21 @@ function startEditingMetadata() {
               </p>
               <p>
                 <strong>Release Year:</strong>
-                <input type="number" bind:value={manualYear} placeholder={detailEntry.release_year!.toString()} min="1950" max="2100" />
+                <input type="number" bind:value={editYear} placeholder={detailEntry.release_year!.toString()} min="1950" max="2100" />
               </p>
               <div class="edit-actions">
-                <button class="edit-submit-btn" title="Save changes">✓ Save</button>
+                <button class="edit-submit-btn" title="Save changes" onclick={saveMetadata}>✓ Save</button>
                 <button class="edit-cancel-btn" title="Cancel changes" onclick={() => {if (editingMetadata) {editingMetadata = false;}}}>✗ Cancel</button>
               </div>
             </div>
             <div class="column">
               <p>
                 <strong>Source:</strong>
-                <input type="text" bind:value={manualSource} placeholder={detailEntry.source} />
+                <input type="text" bind:value={editSource} placeholder={detailEntry.source} />
               </p>
               <p>
                 <strong>Status:</strong>
-                <select bind:value={addOwnership}>
+                <select bind:value={editOwnership}>
                   <option value="NotInstalled">Not Installed</option>
                   <option value="Installed">Installed</option>
                   <option value="Wishlisted">Wishlisted</option>
@@ -870,7 +899,7 @@ function startEditingMetadata() {
             <div class="column">
               <p><strong>Source:</strong> {detailEntry.source ?? "Not set"}</p>
               <p><strong>Status:</strong> {formatOwnership(detailEntry.ownership_status)}</p> 
-              <button class="edit-btn" title="Edit metadata" onclick={() => {if (!editingMetadata) {editingMetadata = true;}}}>✏️ Edit</button>
+              <button class="edit-btn" title="Edit metadata" onclick={startEditingMetadata}>✏️ Edit</button>
             </div>
           {/if}
         </div>
