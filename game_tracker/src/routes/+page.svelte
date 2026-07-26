@@ -3,7 +3,9 @@
   import { onMount } from "svelte";
   import Modal from "../lib/Modal.svelte";
   import {open, ask} from "@tauri-apps/plugin-dialog";
-
+  import {openUrl} from "@tauri-apps/plugin-opener";
+  import {getVersion} from "@tauri-apps/api/app";
+  
   interface ShelfSummary {
     shelf_id: number;
     name: string;
@@ -85,6 +87,7 @@
   let showNewShelfInput = $state(false);
   let newShelfName = $state("");
   let shelfError = $state("");
+  let appUpdateAvailabe = $state(false);
 
 
 
@@ -94,6 +97,13 @@
       activeShelfId = shelves[0].shelf_id;
       await loadShelf(shelves[0].shelf_id);
     }
+
+    const response = await fetch("https://api.github.com/repos/Buttertails/game-tracker/releases/latest");
+    const data = await response.json();
+    const latestVersion = data.tag_name;
+    const latest = latestVersion.replace("v", "");
+    const currentVersion = await getVersion();
+    const appUpdateAvailabe = latest !== currentVersion; 
   });
 
   async function loadShelf(shelfId: number) {
@@ -453,6 +463,10 @@ async function undoToInProgress(entryId: number) {
   const confirmed = await ask("Are you sure? This will clear your completion timestamps.", {title: "Confirm", kind: "warning"});
 
   await invoke("undo_completion_to_in_progress", {entryId, confirmed: confirmed});
+}
+
+async function updateApp() {
+  await openUrl("https://github.com/Buttertails/game-tracker/releases");
 }
 
 </script>
@@ -853,7 +867,7 @@ async function undoToInProgress(entryId: number) {
 
      <!-- Bottom Actions -->
       <div class="bottom-bar">
-        <div class="side-area">
+        <div class="side-area-left">
           <button class="cancel-btn" onclick={() => deleteShelf(shelfData?.shelf.shelf_id!)}>Delete Shelf</button>
         </div>
         <button class="bottom-btn" onclick={openBacklogPicker}>Backlog ({shelfData?.backlog.length ?? 0})</button>
@@ -865,9 +879,11 @@ async function undoToInProgress(entryId: number) {
           🎲 Smart Fill
         </button>
         <button class="bottom-btn" onclick={() => showCompletedModal = true}>Completed ({shelfData?.completed.length ?? 0})</button>
-        <div class="side-area">
-
-        </div>
+        <div class="side-area-right">
+          {#if appUpdateAvailabe}
+            <button class="submit-btn" onclick={updateApp}>Update</button>
+          {/if}
+          </div>
       </div>
 
       {#if smartFillMode && smartFillSuggestions.length > 0}
@@ -1540,10 +1556,16 @@ async function undoToInProgress(entryId: number) {
   width: 100%;
 }
 
-.side-area {
+.side-area-left {
   flex: 1;
   display: flex;
   justify-content: flex-start;
+}
+
+.side-area-right {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
 }
 
 </style>
