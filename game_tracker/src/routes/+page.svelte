@@ -454,6 +454,11 @@ async function updateLaunchPath(detailEntry: GameEntry) {
   if (selected) {
     detailEntry.launch_path = selected;
     await invoke("update_launch_path", {entryId: detailEntry.entry_id, path: selected});
+
+    if (detailEntry.ownership_status !== "Installed") {
+      await invoke("update_ownership_status", {entryId: detailEntry.entry_id, ownershipStatus: "Installed"});
+      detailEntry.ownership_status = "Installed";
+    }
   }
 }
 
@@ -524,6 +529,13 @@ async function deleteEntry(entryId: number) {
   await loadShelf(activeShelfId!);
   detailEntry = null;
   showDetailModal = false;
+}
+
+async function clearLaunchPath() {
+  await invoke("update_launch_path", {entryId: detailEntry!.entry_id, path: null});
+  await invoke("update_ownership_status", {entryId: detailEntry!.entry_id, ownershipStatus: "NotInstalled"});
+  detailEntry!.launch_path = null;
+  detailEntry!.ownership_status = "NotInstalled";
 }
 
 </script>
@@ -847,7 +859,11 @@ async function deleteEntry(entryId: number) {
             <strong>Launch Path:</strong>
             <button class="update-btn" onclick={() => updateLaunchPath(detailEntry!)} title="Set new launch path for game">🔎</button>
           </div>
-          <p style="font-size: 0.7rem">{detailEntry.launch_path ?? "Not set"}<button class="note-delete" title="Clear launch path">×</button></p>
+          <p style="font-size: 0.7rem">{detailEntry.launch_path ?? "Not set"}
+            {#if detailEntry.launch_path}
+              <button class="clear-path" title="Clear launch path" onclick={clearLaunchPath}>×</button>
+            {/if}
+          </p>
         </div>
 
         {#if !detailEntry.genre || !detailEntry.length_category || !detailEntry.release_year}
@@ -1733,6 +1749,19 @@ async function deleteEntry(entryId: number) {
   display: flex;
   gap: 0.5rem;
   margin-top: 0.2rem;
+}
+
+.clear-path {
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  font-size: 1rem;
+  vertical-align: middle;
+}
+
+.clear-path:hover {
+  color: #ff6b6b;
 }
 
 </style>
