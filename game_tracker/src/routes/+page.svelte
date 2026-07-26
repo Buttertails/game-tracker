@@ -489,7 +489,12 @@ async function updateApp() {
           <div class="grid-art">
             <img src={entry.background_image || "/placeholder.png"} alt={entry.name} />
           </div>
-          <p class="grid-name">{entry.name}</p>
+          <p class="grid-name">
+              {#if !entry.genre || !entry.length_category || !entry.release_year}
+                <span style="color: #f5a623" title="Missing metadata">⚠</span> 
+              {/if}
+                {entry.name}
+            </p>
           <button class="start-btn" onclick={(e) => { e.stopPropagation(); startGame(entry.entry_id); }}>
             Start
           </button>
@@ -837,7 +842,14 @@ async function updateApp() {
             <div class="card filled" onclick={() => openDetail(entry)} ondblclick={() => handleLaunch(entry)}>
               <img class="box-art" src={entry.background_image || "/placeholder.png"} alt={entry.name} />
             </div>
-            <p class="game-name">{entry.name}</p>
+            <p class="game-name">
+              {#if !entry.genre || !entry.length_category || !entry.release_year}
+                <span style="color: #f5a623" title="Missing metadata">⚠</span> 
+              {/if}
+                {entry.name}
+            </p>
+
+            
             <button class="launch-btn" onclick={() => handleLaunch(entry)}>
               {entry.ownership_status === "Installed" && entry.launch_path ? "Launch" :
               entry.ownership_status === "Installed" ? "Set Path" :
@@ -1004,6 +1016,9 @@ async function updateApp() {
     font-weight: 600;
     text-align: center;
     margin: 0;
+    padding: 0.4rem 0.6rem;
+    border-radius: 4px;
+    border: 2px solid transparent;
   }
 
   .game-name.placeholder {
@@ -1566,6 +1581,18 @@ async function updateApp() {
   flex: 1;
   display: flex;
   justify-content: flex-end;
+}
+
+.warning-game-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-align: center;
+  margin: 0;
+  color: #f5a623;
+  background: rgba(245, 166, 35, 0.1);
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
+  border: 2px none #f5a623;
 }
 
 </style>
