@@ -330,6 +330,7 @@ function formatOwnership(status: string): string {
 
 async function triggerSmartFill() {
   if (!activeShelfId) return;
+
   smartFillError = "";
   try {
     smartFillSuggestions = await invoke("get_smart_fill_suggestions", { shelfId: activeShelfId });
@@ -469,9 +470,27 @@ async function updateApp() {
   await openUrl("https://github.com/Buttertails/game-tracker/releases");
 }
 
+function handleGlobalKeydown(e: KeyboardEvent) {
+  if (e.key === "Escape") {
+    if (showBacklogPicker) showBacklogPicker=false;
+    else if (showCompletedModal) showCompletedModal=false;
+    else if (showDetailModal) showDetailModal=false;
+    else if (showManualForm) showManualForm=false;
+  }
+  else if (e.key === "Backspace" && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
+    if (showBacklogPicker && backlogView === "add") {
+      if (showManualForm) showManualForm = false; 
+      else if (selectedSearchResult) backToResults();
+      else backToGrid();
+    }
+  }
+}
+
 </script>
 
-<Modal bind:showModal={showBacklogPicker}>
+<svelte:window onkeydown={handleGlobalKeydown} />
+
+<Modal bind:showModal={showBacklogPicker} >
   {#if backlogView === "grid"}
     <h2>Backlog</h2>
     <div class="game-grid">
@@ -491,7 +510,7 @@ async function updateApp() {
           </div>
           <p class="grid-name">
               {#if !entry.genre || !entry.length_category || !entry.release_year}
-                <span style="color: #f5a623" title="Missing metadata">⚠</span> 
+                <span style="color: #f5a623" title="Missing metadata for SmartFill">⚠</span> 
               {/if}
                 {entry.name}
             </p>
@@ -502,7 +521,7 @@ async function updateApp() {
       {/each}
     </div>
   {:else if backlogView === "add"}
-    <button class="back-btn" onclick={() => selectedSearchResult ? backToResults() : backToGrid()}>← Back</button>
+    <button class="back-btn" onclick={() => {if (showManualForm) { showManualForm = false; } else if (selectedSearchResult) { backToResults() } else { backToGrid() } }} >← Back</button>
     <h2>Add Game</h2>
 
     {#if !showManualForm}
@@ -607,8 +626,6 @@ async function updateApp() {
       {/if}
     {:else}
       <!-- Manual form -->
-      <button class="back-btn" onclick={() => showManualForm = false}>← Back to search</button>
-      <h3>Add Game Manually</h3>
       <p class="info-note">Only the game name is required. Genre, length, and year help Smart Fill recommend this game.</p>
 
       <div class="manual-form">
@@ -844,7 +861,7 @@ async function updateApp() {
             </div>
             <p class="game-name">
               {#if !entry.genre || !entry.length_category || !entry.release_year}
-                <span style="color: #f5a623" title="Missing metadata">⚠</span> 
+                <span style="color: #f5a623" title="Missing metadata for SmartFill">⚠</span> 
               {/if}
                 {entry.name}
             </p>
