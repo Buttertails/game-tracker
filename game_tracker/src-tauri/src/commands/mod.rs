@@ -4,8 +4,8 @@ use crate::api::RawgClient;
 use crate::db::Database;
 use crate::models::error::AppError;
 use crate::models::{
-    GameEntryDetail, ManualEntryInput, OwnershipStatus, RawgGameData, Shelf, ShelfEntries,
-    ShelfSummary, SmartFillSuggestion, TimestampedNote,
+    GameEntryDetail, LengthCategory, ManualEntryInput, OwnershipStatus, RawgGameData, Shelf,
+    ShelfEntries, ShelfSummary, SmartFillSuggestion, TimestampedNote,
 };
 use crate::services::game_entry_service::GameEntryService;
 use crate::services::launch_service::GameLaunchService;
@@ -266,4 +266,24 @@ pub fn launch_game(state: State<'_, AppState>, entry_id: i64) -> Result<(), AppE
     let db = state.db.lock().unwrap();
     let service = GameLaunchService::new(&db);
     service.launch(entry_id)
+}
+
+#[tauri::command]
+pub fn update_entry_metadata(
+    state: State<'_, AppState>,
+    entry_id: i64,
+    genre: Option<String>,
+    length_category: Option<LengthCategory>,
+    release_year: Option<i32>,
+    source: Option<String>,
+) -> Result<(), AppError> {
+    let db = state.db.lock().unwrap();
+    let service = GameEntryService::new(&db);
+    service.update_entry_metadata(
+        entry_id,
+        genre.as_deref(),
+        length_category,
+        release_year,
+        source.as_deref(),
+    )
 }

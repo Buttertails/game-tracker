@@ -2,8 +2,10 @@
   import { invoke } from "@tauri-apps/api/core";
   import { onMount } from "svelte";
   import Modal from "../lib/Modal.svelte";
-  import {open} from "@tauri-apps/plugin-dialog";
-
+  import {open, ask} from "@tauri-apps/plugin-dialog";
+  import {openUrl} from "@tauri-apps/plugin-opener";
+  import {getVersion} from "@tauri-apps/api/app";
+  
   interface ShelfSummary {
     shelf_id: number;
     name: string;
@@ -56,8 +58,7 @@
   let activeShelfId = $state<number | null>(null);
   let shelfData = $state<ShelfEntries | null>(null);
   let showBacklogPicker = $state(false);
-  let backlogView = $state<"grid" | "detail" | "add">("grid");
-  let selectedBacklogEntry = $state<GameEntry | null>(null);
+  let backlogView = $state<"grid" | "add">("grid");
   let searchQuery = $state("");
   let searchResults = $state<RawgGameData[]>([]);
   let searchLoading = $state(false);
@@ -85,6 +86,13 @@
   let showNewShelfInput = $state(false);
   let newShelfName = $state("");
   let shelfError = $state("");
+  let appUpdateAvailabe = $state(false);
+  let editingMetadata = $state(false);
+  let editGenre = $state("");
+  let editLength = $state("");
+  let editYear = $state("");
+  let editSource = $state("");
+  let editOwnership = $state("");
 
 
 
@@ -94,6 +102,13 @@
       activeShelfId = shelves[0].shelf_id;
       await loadShelf(shelves[0].shelf_id);
     }
+
+    const response = await fetch("https://api.github.com/repos/Buttertails/game-tracker/releases/latest");
+    const data = await response.json();
+    const latestVersion = data.tag_name;
+    const latest = latestVersion.replace("v", "");
+    const currentVersion = await getVersion();
+    const appUpdateAvailabe = latest !== currentVersion; 
   });
 
   async function loadShelf(shelfId: number) {
@@ -103,23 +118,19 @@
 
   async function openBacklogPicker() {
     backlogView = "grid";
-    selectedBacklogEntry = null;
+    detailEntry = null;
     showBacklogPicker = true;
-  }
-
-  function viewBacklogDetail(entry: GameEntry) {
-    selectedBacklogEntry = entry;
-    backlogView = "detail";
   }
 
   function backToGrid() {
     backlogView = "grid";
-    selectedBacklogEntry = null;
+    detailEntry = null;
   }
 
   async function startGame(entryId: number) {
     try {
       await invoke("move_to_in_progress", {entryId});
+      showDetailModal = false;
       showBacklogPicker = false;
       await loadShelf(activeShelfId!);
     } catch (error:any) {
@@ -179,13 +190,13 @@
 
     let input: any = {
       name: manualName,
-      shelfId: activeShelfId,
+      shelf_id: activeShelfId,
       genre: manualGenre.trim() || null,
       lengthCategory: manualLength || null,
       releaseYear: manualYear ? parseInt(manualYear) : null,
       source: manualSource.trim() || null,
       launchPath: null,
-      ownershipStatus: "NotInstalled",
+      ownership_status: "NotInstalled",
     };
 
     try {
@@ -247,8 +258,10 @@ async function browseLaunchPath() {
 }
 
 async function openDetail(entry: GameEntry) {
+  showBacklogPicker = false;
   detailEntry = entry;
   showDetailModal = true;
+  editingMetadata = false;
   detailError = "";
   newNoteText = "";
   // Load notes for this entry
@@ -281,23 +294,23 @@ async function returnToBacklog() {
   }
 }
 
-async function addNote() {
-  if (!detailEntry || !newNoteText.trim()) return;
+async function addNote(entryId: number) {
+  if (!newNoteText.trim()) return;
   try {
-    await invoke("add_note", { entryId: detailEntry.entry_id, text: newNoteText });
+    await invoke("add_note", { entryId, text: newNoteText });
     newNoteText = "";
-    detailNotes = await invoke("get_notes", { entryId: detailEntry.entry_id });
+    detailNotes = await invoke("get_notes", { entryId });
   } catch (error: any) {
     detailError = typeof error === "string" ? error : JSON.stringify(error);
   }
 }
 
-async function deleteNote(noteId: number) {
+async function deleteNote(noteId: number, entryId: number) {
   try {
     await invoke("delete_note", { noteId });
-    if (detailEntry) {
-      detailNotes = await invoke("get_notes", { entryId: detailEntry.entry_id });
-    }
+    
+    detailNotes = await invoke("get_notes", { entryId });
+    
   } catch (error: any) {
     detailError = typeof error === "string" ? error : JSON.stringify(error);
   }
@@ -320,6 +333,7 @@ function formatOwnership(status: string): string {
 
 async function triggerSmartFill() {
   if (!activeShelfId) return;
+
   smartFillError = "";
   try {
     smartFillSuggestions = await invoke("get_smart_fill_suggestions", { shelfId: activeShelfId });
@@ -384,7 +398,7 @@ async function createShelf() {
 }
 
 async function deleteShelf(shelfId: number) {
-  const confirmed = confirm("Delete this shelf and all its games?");
+  const confirmed = await ask('Delete this shelf and all of its games? The data will be permanently lost.', {title: 'Confirm', kind: 'warning'});
   if (!confirmed) return;
   try {
     await invoke("delete_shelf", { shelfId, confirmed: true });
@@ -418,6 +432,7 @@ async function handleLaunch(entry: GameEntry) {
     if (selected) {
       try {
         await invoke("update_launch_path", { entryId: entry.entry_id, path: selected as string });
+        await invoke("update_ownership_status", {entryId: entry.entry_id, ownershipStatus: "Installed"});
         await loadShelf(activeShelfId!);
       } catch (error: any) {
         alert(typeof error === "string" ? error : JSON.stringify(error));
@@ -440,24 +455,210 @@ async function updateLaunchPath(detailEntry: GameEntry) {
   if (selected) {
     detailEntry.launch_path = selected;
     await invoke("update_launch_path", {entryId: detailEntry.entry_id, path: selected});
+
+    if (detailEntry.ownership_status !== "Installed") {
+      await invoke("update_ownership_status", {entryId: detailEntry.entry_id, ownershipStatus: "Installed"});
+      detailEntry.ownership_status = "Installed";
+    }
+    await loadShelf(activeShelfId!);
   }
 }
 
 async function undoToBacklog(entryId: number) {
-  const confirmed = confirm("Are you sure? This will clear your completion timestamps.");
+  const confirmed = await ask("Are you sure? This will clear your completion timestamps.", {title: "Confirm", kind: "warning"});
 
   await invoke("undo_completion_to_backlog", {entryId, confirmed: confirmed});
 }
 
 async function undoToInProgress(entryId: number) {
-  const confirmed = confirm("Are you sure? This will clear your completion timestamps.");
+  const confirmed = await ask("Are you sure? This will clear your completion timestamps.", {title: "Confirm", kind: "warning"});
 
   await invoke("undo_completion_to_in_progress", {entryId, confirmed: confirmed});
 }
 
+async function updateApp() {
+  await openUrl("https://github.com/Buttertails/game-tracker/releases");
+}
+
+function handleGlobalKeydown(e: KeyboardEvent) {
+  if (e.key === "Escape") {
+    if (showBacklogPicker) showBacklogPicker=false;
+    else if (showCompletedModal) showCompletedModal=false;
+    else if (showDetailModal) showDetailModal=false;
+    else if (showManualForm) showManualForm=false;
+  }
+  else if (e.key === "Backspace" && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
+    if (showBacklogPicker && backlogView === "add") {
+      if (showManualForm) showManualForm = false; 
+      else if (selectedSearchResult) backToResults();
+      else backToGrid();
+    }
+  }
+}
+
+function startEditingMetadata() {
+  editGenre = detailEntry?.genre ?? "";
+  editLength = detailEntry?.length_category ?? "";
+  editYear = detailEntry?.release_year?.toString() ?? "";
+  editSource = detailEntry?.source ?? "";
+  editOwnership = detailEntry?.ownership_status ?? "";
+
+  editingMetadata = true;
+}
+
+async function saveMetadata(entryId: number) {
+
+  const genre = editGenre.trim() || null;
+  const length_category = editLength || null;
+  const release_year = editYear ? parseInt(editYear) : null;
+  const source = editSource.trim() || null;
+  const status = editOwnership.trim() || null;
+
+  await invoke("update_entry_metadata", {
+    entryId,
+    genre,
+    lengthCategory: length_category,
+    releaseYear: release_year,
+    source,
+  });
+
+  if (editOwnership !== detailEntry?.ownership_status) {
+    await invoke("update_ownership_status", {entryId, ownershipStatus: status});
+  }
+  
+
+  detailEntry = await invoke("get_game_entry", {entryId});
+  await loadShelf(activeShelfId!);
+  editingMetadata = false;
+}
+
+async function deleteEntry(entryId: number) {
+  await invoke("delete_game_entry", {entryId});
+  await loadShelf(activeShelfId!);
+  detailEntry = null;
+  showDetailModal = false;
+}
+
+async function clearLaunchPath() {
+  await invoke("update_launch_path", {entryId: detailEntry!.entry_id, path: null});
+  await invoke("update_ownership_status", {entryId: detailEntry!.entry_id, ownershipStatus: "NotInstalled"});
+  
+  await loadShelf(activeShelfId!);
+  detailEntry!.launch_path = null;
+  detailEntry!.ownership_status = "NotInstalled";
+}
+
 </script>
 
-<Modal bind:showModal={showBacklogPicker}>
+<svelte:window onkeydown={handleGlobalKeydown} />
+
+{#snippet detailSidebar(entry: GameEntry)}
+  <div class="detail-sidebar">
+    <img
+      class="confirm-art"
+      src={entry.background_image || "/placeholder.png"}
+      alt={entry.name}
+    />
+    <div class="meta-columns">
+      {#if editingMetadata}
+        <div class="column">
+          <p>
+            <strong>Genre:</strong>
+            <select bind:value={editGenre}>
+              <option value="">{entry.genre}</option>
+              <option value="Action">Action</option>
+              <option value="RPG">RPG</option>
+              <option value="Adventure">Adventure</option>
+              <option value="Puzzle">Puzzle</option>
+              <option value="Strategy">Strategy</option>
+              <option value="Platformer">Platformer</option>
+              <option value="Horror">Horror</option>
+              <option value="FPS">FPS</option>
+              <option value="Simulation">Simulation</option>
+              <option value="Sports">Sports</option>
+              <option value="Racing">Racing</option>
+              <option value="Fighting">Fighting</option>
+              <option value="Metroidvania">Metroidvania</option>
+              <option value="Roguelite">Roguelite</option>
+            </select> 
+          </p>
+          <p>
+            <strong>Length:</strong>
+            <select bind:value={editLength}>
+              <option value="">{entry.length_category}</option>
+              <option value="Short">Short (under 10 hours)</option>
+              <option value="Medium">Medium (10-30 hours)</option>
+              <option value="Long">Long (over 30 hours)</option>
+            </select>
+          </p>
+          <p>
+            <strong>Release Year:</strong>
+            <input type="number" bind:value={editYear} placeholder={entry.release_year!.toString()} min="1950" max="2100" />
+          </p>
+          <div class="edit-actions">
+            <button class="edit-submit-btn" title="Save changes" onclick={() => saveMetadata(detailEntry?.entry_id!)}>✓ Save</button>
+            <button class="edit-cancel-btn" title="Cancel changes" onclick={() => {if (editingMetadata) {editingMetadata = false;}}}>✗ Cancel</button>
+          </div>
+        </div>
+        <div class="column">
+          <p>
+            <strong>Source:</strong>
+            <input type="text" bind:value={editSource} placeholder={entry.source} />
+          </p>
+          <p>
+            <strong>Status:</strong>
+            <select bind:value={editOwnership}>
+              <option value="NotInstalled">Not Installed</option>
+              <option value="Installed">Installed</option>
+              <option value="Wishlisted">Wishlisted</option>
+          </select>
+          </p>
+        </div>
+      {:else}
+        <div class="column">
+          <p><strong>Genre:</strong> {entry.genre ?? "Not set"}</p>
+          <p><strong>Length:</strong> {entry.length_category ?? "Not set"}</p>
+          <p><strong>Release Year:</strong> {entry.release_year ?? "Not set"}</p>
+        </div>
+        <div class="column">
+          <p><strong>Source:</strong> {entry.source ?? "Not set"}</p>
+          <p><strong>Status:</strong> {formatOwnership(entry.ownership_status)}</p> 
+          <button class="edit-btn" title="Edit metadata" onclick={startEditingMetadata}>✏️ Edit</button>
+        </div>
+      {/if}
+    </div>
+  </div>
+{/snippet}
+
+{#snippet notesSection(entryId: number)}
+  <div class="notes-section">
+    <h3>Notes</h3>
+    <div class="note-input-row">
+      <input
+        type="text"
+        placeholder="Add a note..."
+        bind:value={newNoteText}
+        onkeydown={(e) => e.key === "Enter" && addNote(entryId!)}
+      />
+      <button class="submit-btn" onclick={() => addNote(entryId!)}>Add</button>
+    </div>
+    {#if detailNotes.length > 0}
+      <ul class="notes-list">
+        {#each detailNotes as note}
+          <li>
+            <p class="note-text">{note.text}</p>
+            <span class="note-date">{formatLocalDate(note.created_at)}</span>
+            <button class="note-delete" onclick={() => deleteNote(note.note_id, entryId!)}>×</button>
+          </li>
+        {/each}
+      </ul>
+    {:else}
+      <p class="meta">No notes yet.</p>
+    {/if}
+  </div>
+{/snippet}
+
+<Modal bind:showModal={showBacklogPicker} >
   {#if backlogView === "grid"}
     <h2>Backlog</h2>
     <div class="game-grid">
@@ -471,11 +672,16 @@ async function undoToInProgress(entryId: number) {
 
       <!-- Game cards -->
       {#each shelfData?.backlog ?? [] as entry}
-        <div class="grid-card" onclick={() => viewBacklogDetail(entry)}>
+        <div class="grid-card" onclick={() => openDetail(entry)}>
           <div class="grid-art">
             <img src={entry.background_image || "/placeholder.png"} alt={entry.name} />
           </div>
-          <p class="grid-name">{entry.name}</p>
+          <p class="grid-name">
+              {#if !entry.genre || !entry.length_category || !entry.release_year}
+                <span style="color: #f5a623" title="Missing metadata for SmartFill">⚠</span> 
+              {/if}
+                {entry.name}
+            </p>
           <button class="start-btn" onclick={(e) => { e.stopPropagation(); startGame(entry.entry_id); }}>
             Start
           </button>
@@ -483,7 +689,7 @@ async function undoToInProgress(entryId: number) {
       {/each}
     </div>
   {:else if backlogView === "add"}
-    <button class="back-btn" onclick={() => selectedSearchResult ? backToResults() : backToGrid()}>← Back</button>
+    <button class="back-btn" onclick={() => {if (showManualForm) { showManualForm = false; } else if (selectedSearchResult) { backToResults() } else { backToGrid() } }} >← Back</button>
     <h2>Add Game</h2>
 
     {#if !showManualForm}
@@ -588,8 +794,6 @@ async function undoToInProgress(entryId: number) {
       {/if}
     {:else}
       <!-- Manual form -->
-      <button class="back-btn" onclick={() => showManualForm = false}>← Back to search</button>
-      <h3>Add Game Manually</h3>
       <p class="info-note">Only the game name is required. Genre, length, and year help Smart Fill recommend this game.</p>
 
       <div class="manual-form">
@@ -646,41 +850,6 @@ async function undoToInProgress(entryId: number) {
         <button class="submit-btn" onclick={addManually}>Add to Backlog</button>
       </div>
     {/if}
-  {:else}
-    <!-- Backlog Detail View -->
-    <button class="back-btn" onclick={backToGrid}>← Back</button>
-    {#if selectedBacklogEntry}
-      <div class="detail-layout">
-        <div class="detail-main">
-          <h2>{selectedBacklogEntry.name}</h2>
-
-          <div class="detail-meta">
-            <p><strong>Genre:</strong> {selectedBacklogEntry.genre ?? "Not set"}</p>
-            <p><strong>Length:</strong> {selectedBacklogEntry.length_category ?? "Not set"}</p>
-            <p><strong>Release Year:</strong> {selectedBacklogEntry.release_year ?? "Not set"}</p>
-            <p><strong>Source:</strong> {selectedBacklogEntry.source ?? "Not set"}</p>
-            <p><strong>Status:</strong> {formatOwnership(selectedBacklogEntry.ownership_status)}</p>
-            <div>
-              <strong>Launch Path:</strong>
-              <button class="update-path-btn" onclick={() => updateLaunchPath(detailEntry!)} title="Set new launch path for game">🔎</button>
-            </div>
-            <p style="font-size: 0.7rem">{selectedBacklogEntry.launch_path ?? "Not set"}</p>
-          </div>
-
-          {#if !selectedBacklogEntry.genre || !selectedBacklogEntry.length_category || !selectedBacklogEntry.release_year}
-            <p class="warning-note">⚠ Missing metadata — not eligible for Smart Fill</p>
-          {/if}
-
-          <div class="detail-actions">
-            <button class="submit-btn" onclick={() => startGame(selectedBacklogEntry!.entry_id)}>▶ Start Playing</button>
-          </div>
-        </div>
-
-        <div class="detail-sidebar">
-          <img class="confirm-art" src={selectedBacklogEntry.background_image || "/placeholder.png"} alt={selectedBacklogEntry.name} />
-        </div>
-      </div>
-    {/if}
   {/if}
 
 </Modal>
@@ -692,75 +861,48 @@ async function undoToInProgress(entryId: number) {
         <h2>{detailEntry.name}</h2>
 
         <div class="detail-meta">
-          <p><strong>Last Played:</strong> {formatLocalDate(detailEntry.last_played) ?? "Unknown"}</p>
-          <p><strong>Started:</strong> {formatLocalDate(detailEntry.started_at) ?? "Unknown"}</p>
+          {#if detailEntry.status === "InProgress"}
+            <p><strong>Last Played:</strong> {formatLocalDate(detailEntry.last_played) ?? "Unknown"}</p>
+            <p><strong>Started:</strong> {formatLocalDate(detailEntry.started_at) ?? "Unknown"}</p>
+          {/if}
           <div>
             <strong>Launch Path:</strong>
-            <button class="update-path-btn" onclick={() => updateLaunchPath(detailEntry!)} title="Set new launch path for game">🔎</button>
+            <button class="update-btn" onclick={() => updateLaunchPath(detailEntry!)} title="Set new launch path for game">🔎</button>
           </div>
-          <p style="font-size: 0.7rem">{detailEntry.launch_path ?? "Not set"}</p>
+          <p style="font-size: 0.7rem">{detailEntry.launch_path ?? "Not set"}
+            {#if detailEntry.launch_path}
+              <button class="clear-path" title="Clear launch path" onclick={clearLaunchPath}>×</button>
+            {/if}
+          </p>
         </div>
 
         {#if !detailEntry.genre || !detailEntry.length_category || !detailEntry.release_year}
-          <p class="warning-note">⚠ Missing metadata — not eligible for Smart Fill</p>
+        <div>
+          <p class="warning-note">⚠ Missing metadata — not eligible for Smart Fill
+            <button class=update-btn title="Manually set missing data" onclick={startEditingMetadata}>✏️</button>
+          </p>
+        </div>
         {/if}
 
         <!-- Notes section -->
-        <div class="notes-section">
-          <h3>Notes</h3>
-          <div class="note-input-row">
-            <input
-              type="text"
-              placeholder="Add a note..."
-              bind:value={newNoteText}
-              onkeydown={(e) => e.key === "Enter" && addNote()}
-            />
-            <button class="submit-btn" onclick={addNote}>Add</button>
-          </div>
-          {#if detailNotes.length > 0}
-            <ul class="notes-list">
-              {#each detailNotes as note}
-                <li>
-                  <p class="note-text">{note.text}</p>
-                  <span class="note-date">{formatLocalDate(note.created_at)}</span>
-                  <button class="note-delete" onclick={() => deleteNote(note.note_id)}>×</button>
-                </li>
-              {/each}
-            </ul>
-          {:else}
-            <p class="meta">No notes yet.</p>
-          {/if}
-        </div>
+        {@render notesSection(detailEntry!.entry_id)}
 
         {#if detailError}
           <p class="error-msg">{detailError}</p>
         {/if}
 
         <div class="detail-actions">
-          <button class="submit-btn" onclick={completeGame}>✓ Complete</button>
-          <button class="cancel-btn" onclick={returnToBacklog}>✗ Return to Backlog</button>
+          {#if detailEntry.status === "Backlog"}
+            <button class="submit-btn" onclick={() => startGame(detailEntry!.entry_id)}>▶ Start Playing</button>
+            <button class="cancel-btn" onclick={() => deleteEntry(detailEntry!.entry_id)}>✗ Remove</button>
+          {:else if detailEntry.status === "InProgress"}
+            <button class="submit-btn" onclick={completeGame}>✓ Complete</button>
+            <button class="cancel-btn" onclick={returnToBacklog}>✗ Return to Backlog</button>
+          {/if}  
         </div>
       </div>
 
-      <div class="detail-sidebar">
-
-        <img
-          class="confirm-art"
-          src={detailEntry.background_image || "/placeholder.png"}
-          alt={detailEntry.name}
-        />
-        <div class="meta-columns">
-          <div class="column">
-            <p><strong>Genre:</strong> {detailEntry.genre ?? "Not set"}</p>
-            <p><strong>Length:</strong> {detailEntry.length_category ?? "Not set"}</p>
-            <p><strong>Release Year:</strong> {detailEntry.release_year ?? "Not set"}</p>
-          </div>
-          <div class="column">
-            <p><strong>Source:</strong> {detailEntry.source ?? "Not set"}</p>
-            <p><strong>Status:</strong> {formatOwnership(detailEntry.ownership_status)}</p>
-          </div>
-        </div>
-      </div>
+      {@render detailSidebar(detailEntry!)}
     </div>
   {/if}
 </Modal>
@@ -792,7 +934,6 @@ async function undoToInProgress(entryId: number) {
         class="tab"
         class:active={activeShelfId === shelf.shelf_id}
         onclick={() => loadShelf(shelf.shelf_id)}
-        oncontextmenu={(e) => { e.preventDefault(); deleteShelf(shelf.shelf_id); }}
       >
         {shelf.name}
       </button>
@@ -815,8 +956,6 @@ async function undoToInProgress(entryId: number) {
     {/if}
   </div>
 
-
-
     <!-- In-Progress Cards -->
      <div class="cards-area">
       {#each [0, 1, 2] as slot}
@@ -826,11 +965,16 @@ async function undoToInProgress(entryId: number) {
             <div class="card filled" onclick={() => openDetail(entry)} ondblclick={() => handleLaunch(entry)}>
               <img class="box-art" src={entry.background_image || "/placeholder.png"} alt={entry.name} />
             </div>
-            <p class="game-name">{entry.name}</p>
+            <p class="game-name">
+              {#if !entry.genre || !entry.length_category || !entry.release_year}
+                <span style="color: #f5a623" title="Missing metadata for SmartFill">⚠</span> 
+              {/if}
+                {entry.name}
+            </p>
+
+            
             <button class="launch-btn" onclick={() => handleLaunch(entry)}>
-              {entry.ownership_status === "Installed" && entry.launch_path ? "Launch" :
-              entry.ownership_status === "Installed" ? "Set Path" :
-              entry.ownership_status === "Wishlisted" ? "Wishlisted" : "Not Installed"}
+              {entry.launch_path ? "Launch" : "Not Installed"}
             </button>
           {:else}
             {@const suggestion = smartFillMode ? smartFillSuggestions[slot - (shelfData?.in_progress.length ?? 0)] : null}
@@ -856,6 +1000,9 @@ async function undoToInProgress(entryId: number) {
 
      <!-- Bottom Actions -->
       <div class="bottom-bar">
+        <div class="side-area-left">
+          <button class="cancel-btn" onclick={() => deleteShelf(shelfData?.shelf.shelf_id!)}>Delete Shelf</button>
+        </div>
         <button class="bottom-btn" onclick={openBacklogPicker}>Backlog ({shelfData?.backlog.length ?? 0})</button>
         <button
           class="bottom-btn smart-fill"
@@ -865,6 +1012,11 @@ async function undoToInProgress(entryId: number) {
           🎲 Smart Fill
         </button>
         <button class="bottom-btn" onclick={() => showCompletedModal = true}>Completed ({shelfData?.completed.length ?? 0})</button>
+        <div class="side-area-right">
+          {#if appUpdateAvailabe}
+            <button class="submit-btn" onclick={updateApp}>Update</button>
+          {/if}
+          </div>
       </div>
 
       {#if smartFillMode && smartFillSuggestions.length > 0}
@@ -940,8 +1092,8 @@ async function undoToInProgress(entryId: number) {
   }
 
   .card {
-    width: 320px;
-    height: 180px;
+    width: clamp(280px, 25vw, 500px);
+    height: clamp(158px, 14vw, 281px);
     border-radius: 8px;
     overflow: hidden;
     cursor: pointer;
@@ -985,6 +1137,9 @@ async function undoToInProgress(entryId: number) {
     font-weight: 600;
     text-align: center;
     margin: 0;
+    padding: 0.4rem 0.6rem;
+    border-radius: 4px;
+    border: 2px solid transparent;
   }
 
   .game-name.placeholder {
@@ -1378,7 +1533,7 @@ async function undoToInProgress(entryId: number) {
 .detail-sidebar {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
 }
 
 .detail-meta p {
@@ -1512,7 +1667,7 @@ async function undoToInProgress(entryId: number) {
   outline: none;
 }
 
-.update-path-btn {
+.update-btn {
   background: none;
   border: none;
   padding: 0;
@@ -1535,6 +1690,86 @@ async function undoToInProgress(entryId: number) {
   color: #ccc;
   justify-content: space-between;
   width: 100%;
+}
+
+.side-area-left {
+  flex: 1;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.side-area-right {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.edit-btn {
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  border: none;
+  background: #5e5d5d;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+  align-self: flex-start;
+}
+
+.edit-btn:hover {
+  background: #4b4b4b;
+}
+
+.edit-cancel-btn {
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  border: none;
+  background: #9f1414;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+  align-self: flex-start;
+}
+
+.edit-submit-btn {
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  border: none;
+  background: #4d148e;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+  align-self: flex-start;
+}
+
+.meta-columns input,
+.meta-columns select {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 0.85rem;
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+  border: 1px solid #444;
+  background: #1a1a1a;
+  color: #eee;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.2rem;
+}
+
+.clear-path {
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  font-size: 1rem;
+  vertical-align: middle;
+}
+
+.clear-path:hover {
+  color: #ff6b6b;
 }
 
 </style>

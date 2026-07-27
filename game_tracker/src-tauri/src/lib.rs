@@ -55,6 +55,7 @@ pub fn run() {
             commands::get_entries_by_shelf,
             commands::delete_game_entry,
             commands::update_ownership_status,
+            commands::update_entry_metadata,
             // Status transitions
             commands::move_to_in_progress,
             commands::move_to_completed,
