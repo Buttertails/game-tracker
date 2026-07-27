@@ -1092,8 +1092,8 @@ async function clearLaunchPath() {
   }
 
   .card {
-    width: 320px;
-    height: 180px;
+    width: clamp(280px, 25vw, 500px);
+    height: clamp(158px, 14vw, 281px);
     border-radius: 8px;
     overflow: hidden;
     cursor: pointer;
