@@ -432,6 +432,7 @@ async function handleLaunch(entry: GameEntry) {
     if (selected) {
       try {
         await invoke("update_launch_path", { entryId: entry.entry_id, path: selected as string });
+        await invoke("update_ownership_status", {entryId: entry.entry_id, ownershipStatus: "Installed"});
         await loadShelf(activeShelfId!);
       } catch (error: any) {
         alert(typeof error === "string" ? error : JSON.stringify(error));
@@ -459,6 +460,7 @@ async function updateLaunchPath(detailEntry: GameEntry) {
       await invoke("update_ownership_status", {entryId: detailEntry.entry_id, ownershipStatus: "Installed"});
       detailEntry.ownership_status = "Installed";
     }
+    await loadShelf(activeShelfId!);
   }
 }
 
@@ -510,6 +512,7 @@ async function saveMetadata(entryId: number) {
   const length_category = editLength || null;
   const release_year = editYear ? parseInt(editYear) : null;
   const source = editSource.trim() || null;
+  const status = editOwnership.trim() || null;
 
   await invoke("update_entry_metadata", {
     entryId,
@@ -518,6 +521,11 @@ async function saveMetadata(entryId: number) {
     releaseYear: release_year,
     source,
   });
+
+  if (editOwnership !== detailEntry?.ownership_status) {
+    await invoke("update_ownership_status", {entryId, ownershipStatus: status});
+  }
+  
 
   detailEntry = await invoke("get_game_entry", {entryId});
   await loadShelf(activeShelfId!);
@@ -534,6 +542,8 @@ async function deleteEntry(entryId: number) {
 async function clearLaunchPath() {
   await invoke("update_launch_path", {entryId: detailEntry!.entry_id, path: null});
   await invoke("update_ownership_status", {entryId: detailEntry!.entry_id, ownershipStatus: "NotInstalled"});
+  
+  await loadShelf(activeShelfId!);
   detailEntry!.launch_path = null;
   detailEntry!.ownership_status = "NotInstalled";
 }
@@ -964,9 +974,7 @@ async function clearLaunchPath() {
 
             
             <button class="launch-btn" onclick={() => handleLaunch(entry)}>
-              {entry.ownership_status === "Installed" && entry.launch_path ? "Launch" :
-              entry.ownership_status === "Installed" ? "Set Path" :
-              entry.ownership_status === "Wishlisted" ? "Wishlisted" : "Not Installed"}
+              {entry.launch_path ? "Launch" : "Not Installed"}
             </button>
           {:else}
             {@const suggestion = smartFillMode ? smartFillSuggestions[slot - (shelfData?.in_progress.length ?? 0)] : null}
