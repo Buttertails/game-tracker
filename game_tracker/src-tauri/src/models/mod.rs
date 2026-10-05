@@ -52,11 +52,12 @@ pub struct ShelfSummary {
 pub struct GameEntry {
     pub entry_id: i64,
     pub shelf_id: i64,
+    pub igdb_id: Option<i64>,
     pub name: String,
     pub status: GameStatus,
     pub genre: Option<String>,
-    pub length_category: Option<LengthCategory>,
-    pub release_year: Option<i32>,
+    pub avg_playtime_hours: Option<i64>,
+    pub release_date: Option<i32>,
     pub source: Option<String>,
     pub launch_path: Option<String>,
     pub ownership_status: OwnershipStatus,
@@ -72,11 +73,12 @@ pub struct GameEntry {
 pub struct GameEntryDetail {
     pub entry_id: i64,
     pub shelf_id: i64,
+    pub igdb_id: Option<i64>,
     pub name: String,
     pub status: GameStatus,
     pub genre: Option<String>,
-    pub length_category: Option<LengthCategory>,
-    pub release_year: Option<i32>,
+    pub avg_playtime_hours: Option<i64>,
+    pub release_date: Option<i32>,
     pub source: Option<String>,
     pub launch_path: Option<String>,
     pub ownership_status: OwnershipStatus,
@@ -88,6 +90,7 @@ pub struct GameEntryDetail {
     pub background_image: Option<String>,
     pub notes: Vec<TimestampedNote>,
     pub stored_api_data: Option<serde_json::Value>,
+    pub api_data_version: i64,
     pub completion_duration: Option<String>,
 }
 
@@ -130,52 +133,42 @@ pub struct ManualEntryInput {
     pub ownership_status: OwnershipStatus,
 }
 
+/// Neutral, API-agnostic result of a game search. This is the *input* that
+/// `add_from_search` turns into a `GameEntry`. It has an external identity
+/// (`igdb_id`) but no shelf, status, or user state — those only exist once the
+/// game becomes a `GameEntry`.
+///
+/// All fields are pre-derived in the API layer so the add path is a near
+/// passthrough with no RAWG/IGDB-specific parsing downstream.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchResult {
-    pub rawg_id: i64,
+    pub igdb_id: i64,
     pub name: String,
-    pub released: Option<String>,
-    pub rating: Option<f64>,
-    pub platforms: Vec<String>,
+    /// Pre-parsed from IGDB's `first_release_date` (Unix timestamp).
+    pub release_date: Option<i32>,
+    /// First genre name, pre-extracted for the entry's single `genre` field.
+    pub genre: Option<String>,
+    /// Full genre list, for display.
     pub genres: Vec<String>,
-    pub background_image: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RawgGameData {
-    pub id: i64,
-    pub name: String,
-    pub released: Option<String>,
+    /// Platform names, used to populate the source dropdown in the confirm form.
+    pub platforms: Vec<String>,
+    /// Average time-to-beat in HOURS, from IGDB's `/v4/game_time_to_beat`
+    /// (`normally`, converted from seconds). `None` when IGDB has no entry.
+    /// Stored as the raw value; length category is derived on demand.
+    pub avg_playtime_hours: Option<i64>,
+    /// IGDB rating on a 0-100 scale, for display.
     pub rating: Option<f64>,
-    pub metacritic: Option<i32>,
-    pub platforms: Option<Vec<RawgPlatform>>,
-    pub genres: Option<Vec<RawgGenre>>,
+    /// Fully-built cover URL (constructed from IGDB's `cover.image_id`).
     pub background_image: Option<String>,
-    pub esrb_rating: Option<RawgEsrbRating>,
-    #[serde(flatten)]
-    pub extra: serde_json::Value,
+    /// The minimal raw IGDB object we fetched, stored verbatim as the entry's
+    /// `stored_api_data` backup (Option B). Re-fetch by `igdb_id` later for more.
+    pub stored_api_data: serde_json::Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RawgPlatform {
-    pub platform: RawgPlatformInner,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RawgPlatformInner {
-    pub id: i64,
-    pub name: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RawgGenre {
-    pub id: i64,
-    pub name: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RawgEsrbRating {
-    pub name: String,
+pub struct TimeToBeatRaw {
+    pub game_id: i64,
+    pub normally: Option<i64>
 }
 
 pub fn derive_era(release_year: i32) -> Era {

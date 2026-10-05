@@ -11,6 +11,7 @@ use rusqlite::{params, Result};
 pub fn insert_entry(
     db: &Database,
     shelf_id: i64,
+    igdb_id: Option<i64>,
     name: &str,
     status: i64,
     genre: Option<&str>,
@@ -22,6 +23,7 @@ pub fn insert_entry(
     ownership_status: i64,
     stored_api_data: Option<serde_json::Value>,
     background_image: Option<&str>,
+    api_data_version: i64,
 ) -> Result<i64> {
     let mut stmt = db.conn.prepare(
     "INSERT INTO 

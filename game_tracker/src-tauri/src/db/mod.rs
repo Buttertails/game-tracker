@@ -42,12 +42,12 @@ impl Database {
             CREATE TABLE IF NOT EXISTS game_entries (
                 entry_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 shelf_id INTEGER NOT NULL,
+                igdb_id: INTEGER,
                 name TEXT NOT NULL,
                 status INTEGER NOT NULL,
                 genre TEXT,
-                length_category INTEGER,
-                release_year INTEGER CHECK (release_year IS NULL OR (release_year >= 1950 AND release_year <= 2100)),
-                era INTEGER,
+                avg_playtime_hours INTEGER,
+                release_date INTEGER,
                 source TEXT,
                 launch_path TEXT,
                 ownership_status INTEGER,
@@ -55,14 +55,13 @@ impl Database {
                 completed_at TEXT,
                 addition_date TEXT NOT NULL DEFAULT (datetime('now')),
                 last_played TEXT,
-                stored_api_data TEXT,
                 background_image TEXT,
+                stored_api_data TEXT,
+                api_data_version INTEGER NOT NULL DEFAULT 2,
                 created_at TEXT NOT NULL DEFAULT (datetime('now')),
 
                 FOREIGN KEY (shelf_id) REFERENCES shelves(shelf_id) ON DELETE CASCADE,
                 FOREIGN KEY (status) REFERENCES statuses(status_id) ON DELETE RESTRICT,
-                FOREIGN KEY (length_category) REFERENCES length_categories(length_category_id) ON DELETE SET NULL,
-                FOREIGN KEY (era) REFERENCES eras(era_id) ON DELETE SET NULL,
                 FOREIGN KEY (ownership_status) REFERENCES ownership_statuses(ownership_status_id) ON DELETE SET NULL
             );
 
@@ -87,16 +86,6 @@ impl Database {
                 status_type TEXT NOT NULL
             );
 
-            CREATE TABLE IF NOT EXISTS length_categories (
-                length_category_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                category_type TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS eras (
-                era_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                era_type TEXT NOT NULL
-            );
-
             CREATE TABLE IF NOT EXISTS ownership_statuses (
                 ownership_status_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 ownership_status_type TEXT
@@ -111,14 +100,6 @@ impl Database {
             INSERT INTO statuses(status_type) SELECT 'backlog' WHERE NOT EXISTS( SELECT 1 FROM statuses WHERE status_type = 'backlog');
             INSERT INTO statuses(status_type) SELECT 'in_progress' WHERE NOT EXISTS (SELECT 1 FROM statuses WHERE status_type = 'in_progress');
             INSERT INTO statuses(status_type) SELECT 'completed' WHERE NOT EXISTS (SELECT 1 FROM statuses WHERE status_type = 'completed');
-
-            INSERT INTO length_categories(category_type) SELECT 'short' WHERE NOT EXISTS (SELECT 1 FROM length_categories WHERE category_type = 'short');
-            INSERT INTO length_categories(category_type) SELECT 'medium' WHERE NOT EXISTS (SELECT 1 FROM length_categories WHERE category_type = 'medium');
-            INSERT INTO length_categories(category_type) SELECT 'long' WHERE NOT EXISTS (SELECT 1 FROM length_categories WHERE category_type = 'long');
-
-            INSERT INTO eras(era_type) SELECT 'retro' WHERE NOT EXISTS (SELECT 1 FROM eras WHERE era_type = 'retro');
-            INSERT INTO eras(era_type) SELECT 'modern' WHERE NOT EXISTS (SELECT 1 FROM eras WHERE era_type = 'modern');
-            INSERT INTO eras(era_type) SELECT 'recent' WHERE NOT EXISTS (SELECT 1 FROM eras WHERE era_type = 'recent');
 
             INSERT INTO ownership_statuses(ownership_status_type) SELECT 'installed' WHERE NOT EXISTS (SELECT 1 FROM ownership_statuses WHERE ownership_status_type = 'installed');
             INSERT INTO ownership_statuses(ownership_status_type) SELECT 'not_installed' WHERE NOT EXISTS (SELECT 1 FROM ownership_statuses WHERE ownership_status_type = 'not_installed');
