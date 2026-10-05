@@ -2,8 +2,8 @@ pub mod error;
 
 use chrono::{DateTime, Datelike, Utc};
 use serde::{Deserialize, Serialize};
-use tauri::webview::cookie::time::Date;
 use std::fmt;
+
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GameStatus {
@@ -134,13 +134,6 @@ pub struct ManualEntryInput {
     pub ownership_status: OwnershipStatus,
 }
 
-/// Neutral, API-agnostic result of a game search. This is the *input* that
-/// `add_from_search` turns into a `GameEntry`. It has an external identity
-/// (`igdb_id`) but no shelf, status, or user state — those only exist once the
-/// game becomes a `GameEntry`.
-///
-/// All fields are pre-derived in the API layer so the add path is a near
-/// passthrough with no RAWG/IGDB-specific parsing downstream.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchResult {
     pub igdb_id: i64,
@@ -166,10 +159,37 @@ pub struct SearchResult {
     pub stored_api_data: serde_json::Value,
 }
 
+// Raw IBDG data models used for deserialization. Used for mapping to own models
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TimeToBeatRaw {
+pub struct IgdbTimeToBeatRaw {
     pub game_id: i64,
     pub normally: Option<i64>
+}
+
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct IgdbGameRaw {
+    pub id: i64,
+    pub name: String,
+    pub first_release_date: Option<i64>,
+    #[serde(default)]
+    pub genres: Vec<IgdbNamed>,
+    #[serde(default)]
+    pub platforms: Vec<IgdbNamed>,
+    pub aggregated_rating: Option<f64>,
+    pub cover: Option<CoverRaw>,
+}
+
+// Any IGDB sub-record where we only requested its `name` (genres, platforms).
+#[derive(Debug, Clone, Deserialize)]
+pub struct IgdbNamed {
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CoverRaw {
+    pub image_id: String,
 }
 
 pub fn derive_era(release_date: DateTime<Utc>) -> Era {

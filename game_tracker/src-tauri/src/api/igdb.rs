@@ -1,10 +1,10 @@
 use reqwest::{Client, header::{ACCEPT, AUTHORIZATION}};
 use chrono::{Utc, TimeDelta};
 use tauri::http::{HeaderMap, HeaderValue};
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashMap, time::Duration, sync::Mutex};
 
 use crate::{
-    api::{AuthResponse, IgdbClient}, models::{SearchResult, TimeToBeatRaw, error::AppError},
+    api::{AuthResponse, IgdbClient, Token}, models::{SearchResult, IgdbTimeToBeatRaw, IgdbGameRaw, error::AppError},
 };
 
 
@@ -27,18 +27,24 @@ impl IgdbClient {
             base_url: "https://api.igdb.com/v4".to_string(),
             client_id: client_id,
             client_secret: client_secret,
-            token: "".to_string(),
-            token_expire: None,
+            token: Mutex::new(Token {
+                access_token: String::new(),
+                token_expire: None
+            })
         }
     }
 
-    pub async fn verify_auth(&mut self) -> Result<(), AppError>{
+    pub async fn verify_auth(&self) -> Result<(), AppError>{
         
         // Check if token is valid, if exists and is still greater than current time
         // then return Ok(())
-        let mut current_time = Utc::now();
-        if self.token_expire.is_some() && self.token_expire.unwrap() > current_time {
-            return Ok(())
+        {
+            let guard = self.token.lock()?;
+            if let Some(expire_time) = guard.token_expire {
+                if expire_time > Utc::now() {
+                    return Ok(());
+                }
+            }
         }
 
         // If not valid, call API to get new access token
@@ -57,8 +63,12 @@ impl IgdbClient {
         let token_type = json_response.token_type;
         let access_token = json_response.access_token;
         let token = format!("{token_type} {access_token}");
-        self.token = token;
-        self.token_expire = Some(new_expire_time);
+
+        {
+            let mut guard = self.token.lock()?;
+            guard.access_token = token;
+            guard.token_expire = Some(new_expire_time);
+        }
 
         Ok(())
     }
@@ -74,60 +84,68 @@ impl IgdbClient {
         let mut url = format!("{base_url}/games");
 
         // Build/Send request
-        let headers = HeaderMap::new();
-        let client_id = self.client_id;
-        self.verify_auth();
-        let token = self.token;
+        let mut headers = HeaderMap::new();
+        let client_id = &self.client_id;
+        
+        self.verify_auth().await?;
+
+        let token = {
+            let guard = self.token.lock()?;
+            guard.access_token.clone()
+        }; 
+
         headers.insert(ACCEPT, HeaderValue::from_str("application/json")?);
         headers.insert("Client-ID", HeaderValue::from_str(&client_id)?);
         headers.insert(AUTHORIZATION, HeaderValue::from_str(&token)?);
+
         let request_body = format!("
             search \"{query}\";
             fields name,first_release_date,genres.name,platforms.name,aggregated_rating,cover.image_id;
             limit 20; "
         );
-        let body = self.client.post(url).headers(headers).body(request_body).send().await?;
-        let results: Vec<SearchResult> = body.json().await?;
+        let body = self.client.post(url).headers(headers.clone()).body(request_body).send().await?;
+        let raw_results: Vec<IgdbGameRaw> = body.json().await?;
+
+        let mut results: Vec<SearchResult> = Vec::new();
+
+        for r in raw_results{
+
+            let genres: Vec<String> = r.genres.into_iter().map(|gr| gr.name).collect();
+            let genre = genres.first().cloned();
+
+            results.push(SearchResult { 
+                igdb_id: r.id, 
+                name: r.name, 
+                release_date: r.first_release_date.and_then(|t| chrono::DateTime::from_timestamp(t, 0)), 
+                genre: genre, 
+                genres: genres,
+                platforms: r.platforms.into_iter().map(|gp| gp.name).collect(), 
+                avg_playtime_hours: None, 
+                rating: r.aggregated_rating, 
+                background_image: r.cover.map(|c| format!("https://images.igdb.com/igdb/image/upload/t_cover_big/{}.jpg", c.image_id)), 
+                stored_api_data: Default::default()
+            });
+        }
+
+        if results.is_empty() {
+            return Ok(results);
+        }
+
 
         let ids: Vec<String> = results.iter().map(|r| r.igdb_id.to_string()).collect();
         let id_list = ids.join(",");
 
-        url = format!("{base_url}/game_time_to_beats");
+        url = format!("{base_url}/game_time_to_beat");
         let ttb_body = format!("fields game_id,normally; where game_id=({id_list}); limit {}", results.len());
         let ttb_response = self.client.post(url).headers(headers).body(ttb_body).send().await?;
-        let ttb_results: Vec<TimeToBeatRaw> = ttb_response.json().await?;
+        let ttb_results: Vec<IgdbTimeToBeatRaw> = ttb_response.json().await?;
 
         let playtime_by_game: HashMap<i64, i64> = ttb_results.into_iter().filter_map(|t| t.normally.map(|s| (t.game_id, s / 3600))).collect();
-
 
         for r in &mut results {
             r.avg_playtime_hours = playtime_by_game.get(&r.igdb_id).copied();
         }
-        // Send request for average playtime hours
-            
 
-        // Parse JSON response
-        Err(AppError::NoLaunchPath())
-    }
-
-
-    pub async fn search_games(&self, query: &str) -> Result<Vec<RawgGameData>, AppError> {
-        // Validate query is non-empty
-        if query.is_empty() {
-            return Err(AppError::ValidationError("Query is empty".to_string()));
-        }
-
-        // Build URL
-        let base_url = &self.base_url;
-        let api_key = &self.api_key;
-        let url = format!("{base_url}/games?key={api_key}&search={query}&page_size=20");
-
-        // Send GET request
-        let body = self.client.get(url).send().await?;
-
-        // Parse JSON response
-        let json_response: RawgResponse = body.json().await?;
-
-        Ok(json_response.results)
+        Ok(results)
     }
 }

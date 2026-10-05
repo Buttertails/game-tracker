@@ -57,3 +57,15 @@ impl std::fmt::Display for AppError {
         write!(f, "{:?}", self)
     }
 }
+
+impl From<tauri::http::header::InvalidHeaderValue> for AppError {
+    fn from(e: tauri::http::header::InvalidHeaderValue) -> Self {
+        AppError::ApiUnavailable(e.to_string())
+    }
+}
+
+impl From<std::sync::PoisonError<std::sync::MutexGuard<'_, crate::api::Token>>> for AppError {
+    fn from(e: std::sync::PoisonError<std::sync::MutexGuard<'_, crate::api::Token>>) -> Self {
+        AppError::ApiUnavailable(e.to_string())
+    }
+}   
