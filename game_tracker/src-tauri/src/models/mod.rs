@@ -1,7 +1,8 @@
 pub mod error;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Datelike, Utc};
 use serde::{Deserialize, Serialize};
+use tauri::webview::cookie::time::Date;
 use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -57,7 +58,7 @@ pub struct GameEntry {
     pub status: GameStatus,
     pub genre: Option<String>,
     pub avg_playtime_hours: Option<i64>,
-    pub release_date: Option<i32>,
+    pub release_date: Option<DateTime<Utc>>,
     pub source: Option<String>,
     pub launch_path: Option<String>,
     pub ownership_status: OwnershipStatus,
@@ -78,7 +79,7 @@ pub struct GameEntryDetail {
     pub status: GameStatus,
     pub genre: Option<String>,
     pub avg_playtime_hours: Option<i64>,
-    pub release_date: Option<i32>,
+    pub release_date: Option<DateTime<Utc>>,
     pub source: Option<String>,
     pub launch_path: Option<String>,
     pub ownership_status: OwnershipStatus,
@@ -126,8 +127,8 @@ pub struct ManualEntryInput {
     pub name: String,
     pub shelf_id: i64,
     pub genre: Option<String>,
-    pub length_category: Option<LengthCategory>,
-    pub release_year: Option<i32>,
+    pub avg_playtime_hours: Option<i64>,
+    pub release_date: Option<DateTime<Utc>>,
     pub source: Option<String>,
     pub launch_path: Option<String>,
     pub ownership_status: OwnershipStatus,
@@ -144,8 +145,8 @@ pub struct ManualEntryInput {
 pub struct SearchResult {
     pub igdb_id: i64,
     pub name: String,
-    /// Pre-parsed from IGDB's `first_release_date` (Unix timestamp).
-    pub release_date: Option<i32>,
+    /// Pre-parsed from IGDB's `first_release_date` (UNIX timestamp) into a `DateTime<Utc>`
+    pub release_date: Option<DateTime<Utc>>,
     /// First genre name, pre-extracted for the entry's single `genre` field.
     pub genre: Option<String>,
     /// Full genre list, for display.
@@ -171,7 +172,8 @@ pub struct TimeToBeatRaw {
     pub normally: Option<i64>
 }
 
-pub fn derive_era(release_year: i32) -> Era {
+pub fn derive_era(release_date: DateTime<Utc>) -> Era {
+    let release_year = release_date.year();
     match release_year {
         y if y < 2000 => Era::Retro,
         y if y <= 2015 => Era::Modern,
