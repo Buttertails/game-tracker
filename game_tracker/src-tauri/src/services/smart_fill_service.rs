@@ -2,7 +2,7 @@ use rand::seq::IndexedRandom;
 
 use crate::db::game_entries;
 use crate::models::error::AppError;
-use crate::models::{derive_era, Era, GameEntry, LengthCategory, ShelfEntries};
+use crate::models::{Era, GameEntry, LengthCategory, ShelfEntries, derive_era, derive_length_category};
 use crate::services::status_transition_service::StatusTransitionService;
 use crate::{db::Database, models::SmartFillSuggestion};
 
@@ -50,8 +50,8 @@ impl<'a> SmartFillService<'a> {
                 entry_id: entry.entry_id,
                 name: entry.name.clone(),
                 genre: entry.genre.clone().unwrap(),
-                length_category: entry.length_category.unwrap(),
-                era: derive_era(entry.release_year.unwrap()),
+                length_category: derive_length_category(entry.avg_playtime_hours.unwrap()),
+                era: derive_era(entry.release_date.unwrap()),
                 diversity_score: self.score_candidate(entry, &diversity_context),
                 background_image: entry.background_image.clone(),
             })
@@ -84,8 +84,8 @@ impl<'a> SmartFillService<'a> {
             let entry = game_entries::get_entry(self.db, id)?;
             context.push(DiversityProfile {
                 genre: entry.genre.clone().unwrap(),
-                length_category: entry.length_category.unwrap(),
-                era: derive_era(entry.release_year.unwrap()),
+                length_category: derive_length_category(entry.avg_playtime_hours.unwrap()),
+                era: derive_era(entry.release_date.unwrap()),
             });
         }
 
@@ -110,8 +110,8 @@ impl<'a> SmartFillService<'a> {
             entry_id: entry.entry_id,
             name: entry.name.clone(),
             genre: entry.genre.clone().unwrap(),
-            length_category: entry.length_category.unwrap(),
-            era: derive_era(entry.release_year.unwrap()),
+            length_category: derive_length_category(entry.avg_playtime_hours.unwrap()),
+            era: derive_era(entry.release_date.unwrap()),
             diversity_score: self.score_candidate(entry, &context),
             background_image: entry.background_image.clone(),
         })
@@ -149,8 +149,8 @@ impl<'a> SmartFillService<'a> {
 
             context.push(DiversityProfile {
                 genre: chosen.genre.clone().unwrap(),
-                length_category: chosen.length_category.unwrap(),
-                era: derive_era(chosen.release_year.unwrap()),
+                length_category: derive_length_category(chosen.avg_playtime_hours.unwrap()),
+                era: derive_era(chosen.release_date.unwrap()),
             });
 
             selected.push(chosen);
@@ -163,8 +163,8 @@ impl<'a> SmartFillService<'a> {
         let mut score: u32 = 0;
 
         let cand_genre = candidate.genre.as_ref().unwrap();
-        let cand_length = candidate.length_category.unwrap();
-        let cand_era = derive_era(candidate.release_year.unwrap());
+        let cand_length = derive_length_category(candidate.avg_playtime_hours.unwrap());
+        let cand_era = derive_era(candidate.release_date.unwrap());
 
         for ctx in context {
             if cand_genre != &ctx.genre {
@@ -186,8 +186,8 @@ impl<'a> SmartFillService<'a> {
             .iter()
             .filter_map(|ge| {
                 let genre = ge.genre.as_ref()?.clone();
-                let length_category = ge.length_category?;
-                let era = derive_era(ge.release_year?);
+                let length_category = derive_length_category(ge.avg_playtime_hours?);
+                let era = derive_era(ge.release_date?);
 
                 Some(DiversityProfile {
                     genre,
@@ -208,7 +208,7 @@ impl<'a> SmartFillService<'a> {
             .backlog
             .iter()
             .filter(|ge| {
-                ge.genre.is_some() && ge.length_category.is_some() && ge.release_year.is_some()
+                ge.genre.is_some() && ge.avg_playtime_hours.is_some() && ge.release_date.is_some()
             })
             .cloned()
             .collect::<Vec<GameEntry>>();
