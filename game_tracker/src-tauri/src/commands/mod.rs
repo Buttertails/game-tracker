@@ -1,11 +1,10 @@
 use std::sync::Mutex;
 
-use crate::api::RawgClient;
+use crate::api::IgdbClient;
 use crate::db::Database;
 use crate::models::error::AppError;
 use crate::models::{
-    GameEntryDetail, LengthCategory, ManualEntryInput, OwnershipStatus, RawgGameData, Shelf,
-    ShelfEntries, ShelfSummary, SmartFillSuggestion, TimestampedNote,
+    GameEntryDetail, ManualEntryInput, OwnershipStatus, SearchResult, Shelf, ShelfEntries, ShelfSummary, SmartFillSuggestion, TimestampedNote,
 };
 use crate::services::game_entry_service::GameEntryService;
 use crate::services::launch_service::GameLaunchService;
@@ -15,10 +14,11 @@ use crate::services::smart_fill_service::SmartFillService;
 use crate::services::status_transition_service::StatusTransitionService;
 use crate::services::tag_service::TagService;
 use tauri::State;
+use chrono::{DateTime, Utc};
 
 pub struct AppState {
     pub db: Mutex<Database>,
-    pub rawg_client: RawgClient,
+    pub igdb_client: IgdbClient,
 }
 
 #[tauri::command]
@@ -61,14 +61,14 @@ pub fn delete_shelf(
 pub async fn search_games(
     state: State<'_, AppState>,
     query: String,
-) -> Result<Vec<RawgGameData>, AppError> {
-    state.rawg_client.search_games(&query).await
+) -> Result<Vec<SearchResult>, AppError> {
+    state.igdb_client.search_games(&query).await
 }
 
 #[tauri::command]
 pub fn add_game_from_search(
     state: State<'_, AppState>,
-    rawg_data: RawgGameData,
+    search_result: SearchResult,
     shelf_id: i64,
     source: Option<String>,
     launch_path: Option<String>,
@@ -78,7 +78,7 @@ pub fn add_game_from_search(
     let db = state.db.lock().unwrap();
     let service = GameEntryService::new(&db);
     service.add_from_search(
-        &rawg_data,
+        &search_result,
         shelf_id,
         source.as_deref(),
         launch_path.as_deref(),
@@ -273,8 +273,8 @@ pub fn update_entry_metadata(
     state: State<'_, AppState>,
     entry_id: i64,
     genre: Option<String>,
-    length_category: Option<LengthCategory>,
-    release_year: Option<i32>,
+    avg_playtime_hours: Option<i64>,
+    release_date: Option<DateTime<Utc>>,
     source: Option<String>,
 ) -> Result<(), AppError> {
     let db = state.db.lock().unwrap();
@@ -282,8 +282,8 @@ pub fn update_entry_metadata(
     service.update_entry_metadata(
         entry_id,
         genre.as_deref(),
-        length_category,
-        release_year,
+        avg_playtime_hours,
+        release_date,
         source.as_deref(),
     )
 }

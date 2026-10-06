@@ -4,7 +4,7 @@ pub mod db;
 pub mod models;
 pub mod services;
 
-use api::RawgClient;
+use api::IgdbClient;
 use commands::AppState;
 use db::Database;
 use std::sync::Mutex;
@@ -12,11 +12,18 @@ use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     dotenvy::dotenv().ok();
-    let api_key = match option_env!("RAWG_API_KEY") {
+
+    let client_id = match option_env!("IGDB_CLIENT_ID") {
         Some(s) => s.to_string(),
-        None => std::env::var("RAWG_API_KEY").expect("RAWG_API_KEY not set"),
+        None => std::env::var("IGDB_CLIENT_ID").expect("IGDB_CLIENT_ID not set"),
     };
-    let rawg_client = RawgClient::new(api_key.to_string());
+
+    let client_secret = match option_env!("IGDB_CLIENT_SECRET") {
+        Some(s) => s.to_string(),
+        None => std::env::var("IGDB_CLIENT_SECRET").expect("IGDB_CLIENT_SECRET not set"),
+    };
+
+    let igdb_client = IgdbClient::new(client_id, client_secret);
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -35,7 +42,7 @@ pub fn run() {
 
             app.manage(AppState {
                 db: Mutex::new(db),
-                rawg_client,
+                igdb_client,
             });
 
             Ok(())
