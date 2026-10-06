@@ -1,8 +1,10 @@
+use chrono::{Datelike, DateTime, Utc};
+
 use crate::db::{game_entries, shelves, tags, Database};
 use crate::models::error::AppError;
 use crate::models::{
-    derive_era, derive_length_category, GameEntryDetail, GameStatus, LengthCategory,
-    ManualEntryInput, OwnershipStatus, RawgGameData, ShelfEntries,
+    GameEntryDetail, GameStatus, 
+    ManualEntryInput, OwnershipStatus, SearchResult, ShelfEntries,
 };
 pub struct GameEntryService<'a> {
     db: &'a Database,
@@ -15,7 +17,7 @@ impl<'a> GameEntryService<'a> {
 
     pub fn add_from_search(
         &self,
-        rawg_data: &RawgGameData,
+        search_result: &SearchResult,
         shelf_id: i64,
         source: Option<&str>,
         launch_path: Option<&str>,
@@ -28,47 +30,20 @@ impl<'a> GameEntryService<'a> {
             return Err(AppError::ShelfNotFound(shelf_id));
         }
 
-        // Extract genre from RAWG data
-        let genre = rawg_data
-            .genres
-            .as_ref()
-            .and_then(|g| g.first())
-            .map(|g| g.name.clone());
-
-        // Extract length category from RAWG data
-        let playtime = rawg_data
-            .extra
-            .get("playtime")
-            .and_then(|v| v.as_i64())
-            .filter(|&p| p > 0)
-            .map(|p| derive_length_category(p).to_id());
-
-        // Extract release date and parse release year
-        let release_year = rawg_data
-            .released
-            .as_ref()
-            .and_then(|r| r.split('-').next()?.parse::<i32>().ok());
-
-        // Derive era from release year
-        let era = release_year.map(|r| derive_era(r).to_id());
-
-        // Extract extra json data from RAWG data
-        let rawg_data_json = Some(serde_json::to_value(&rawg_data)?);
-
         let entry_id = game_entries::insert_entry(
             self.db,
             shelf_id,
-            rawg_data.name.as_str(),
+            Some(search_result.igdb_id),
+            search_result.name.as_str(),
             GameStatus::Backlog.to_id(),
-            genre.as_deref(),
-            playtime,
-            release_year,
-            era,
+            search_result.genre.as_deref(),
+            search_result.avg_playtime_hours,
+            search_result.release_date,
             source,
             launch_path,
             ownership_status.to_id(),
-            rawg_data_json,
-            rawg_data.background_image.as_deref(),
+            Some(search_result.stored_api_data.clone()),
+            search_result.background_image.as_deref(),
         )?;
 
         for tag in tag_list {
@@ -102,17 +77,14 @@ impl<'a> GameEntryService<'a> {
 
         // Validate optional release year
         // Derive era into era id if valid
-        if let Some(year) = input.release_year {
+        if let Some(date) = input.release_date {
+            let year = date.year();
             if year < 1950 || year > 2100 {
                 return Err(AppError::ValidationError(
                     "Release year must be between 1950 and 2100".to_string(),
                 ));
             }
         }
-        let era_id = input.release_year.map(|y| derive_era(y).to_id());
-
-        // Validate optional length category
-        let length_category_id = input.length_category.map(|lc| lc.to_id());
 
         // Validate shelf exists
         let shelf = shelves::get_shelf(self.db, input.shelf_id);
@@ -124,12 +96,12 @@ impl<'a> GameEntryService<'a> {
         let entry_id = game_entries::insert_entry(
             self.db,
             input.shelf_id,
+            None,
             trimmed,
             GameStatus::Backlog.to_id(),
             input.genre.as_deref(),
-            length_category_id,
-            input.release_year,
-            era_id,
+            input.avg_playtime_hours,
+            input.release_date,
             input.source.as_deref(),
             input.launch_path.as_deref(),
             input.ownership_status.to_id(),
@@ -204,21 +176,19 @@ impl<'a> GameEntryService<'a> {
         &self,
         entry_id: i64,
         genre: Option<&str>,
-        length_category: Option<LengthCategory>,
-        release_year: Option<i32>,
+        avg_playtime_hours: Option<i64>,
+        release_date: Option<DateTime<Utc>>,
         source: Option<&str>,
     ) -> Result<(), AppError> {
         // validate release year between 1950-2100
-        if let Some(year) = release_year {
+        if let Some(date) = release_date {
+            let year = date.year();
             if year < 1950 || year > 2100 {
                 return Err(AppError::ValidationError(
                     "Release year must be between 1950 and 2100".to_string(),
                 ));
             }
         }
-
-        // validate length category value
-        let length_category_id = length_category.map(|lc| lc.to_id());
 
         // validate genre non-empty
         if let Some(g) = genre {
@@ -244,16 +214,12 @@ impl<'a> GameEntryService<'a> {
             }
         }
 
-        // derive era from release year
-        let era_id = release_year.map(|y| derive_era(y).to_id());
-
         let result = game_entries::update_entry_metadata(
             self.db,
             entry_id,
             genre,
-            length_category_id,
-            release_year,
-            era_id,
+            avg_playtime_hours,
+            release_date,
             source,
         )?;
         if result == 0 {

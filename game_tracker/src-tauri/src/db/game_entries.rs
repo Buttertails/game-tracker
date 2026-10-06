@@ -2,9 +2,11 @@ use super::notes::list_notes_by_entry;
 use super::tags::get_tags_for_entry;
 use super::Database;
 use crate::models::{
-    format_duration, GameEntry, GameEntryDetail, GameStatus, LengthCategory, OwnershipStatus,
+    format_duration, GameEntry, GameEntryDetail, GameStatus, OwnershipStatus,
     Shelf, ShelfEntries, TimestampedNote,
 };
+
+use chrono::{DateTime, Utc};
 
 use rusqlite::{params, Result};
 
@@ -15,19 +17,29 @@ pub fn insert_entry(
     name: &str,
     status: i64,
     genre: Option<&str>,
-    length_category: Option<i64>,
-    release_year: Option<i32>,
-    era: Option<i64>,
+    avg_playtime_hours: Option<i64>,
+    release_date: Option<DateTime<Utc>>,
     source: Option<&str>,
     launch_path: Option<&str>,
     ownership_status: i64,
     stored_api_data: Option<serde_json::Value>,
     background_image: Option<&str>,
-    api_data_version: i64,
 ) -> Result<i64> {
     let mut stmt = db.conn.prepare(
     "INSERT INTO 
-            game_entries (shelf_id, name, status, genre, length_category, release_year, era, source, launch_path, ownership_status, stored_api_data, background_image) 
+            game_entries (
+                shelf_id, 
+                igdb_id, 
+                name, 
+                status, 
+                genre, 
+                avg_playtime_hours, 
+                release_date, 
+                source, 
+                launch_path, 
+                ownership_status, 
+                stored_api_data, 
+                background_image) 
         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12) 
         RETURNING entry_id"
     )?;
@@ -35,12 +47,12 @@ pub fn insert_entry(
     let entry_id = stmt.query_row(
         params![
             shelf_id,
+            igdb_id,
             name,
             status,
             genre,
-            length_category,
-            release_year,
-            era,
+            avg_playtime_hours,
+            release_date,
             source,
             launch_path,
             ownership_status,
@@ -74,16 +86,15 @@ pub fn list_entries_by_shelf(db: &Database, id: i64) -> Result<ShelfEntries> {
             Ok(GameEntry {
                 entry_id: row.get(0)?,
                 shelf_id: row.get(1)?,
-                name: row.get(2)?,
+                igdb_id: row.get(2)?,
+                name: row.get(3)?,
                 status: row
-                    .get::<_, Option<i64>>(3)?
+                    .get::<_, Option<i64>>(4)?
                     .and_then(GameStatus::from_id)
                     .unwrap_or(GameStatus::Backlog),
-                genre: row.get(4)?,
-                length_category: row
-                    .get::<_, Option<i64>>(5)?
-                    .and_then(LengthCategory::from_id),
-                release_year: row.get(6)?,
+                genre: row.get(5)?,
+                avg_playtime_hours: row.get(6)?,
+                release_date: row.get(7)?,
                 source: row.get(8)?,
                 launch_path: row.get(9)?,
                 ownership_status: row
@@ -95,7 +106,7 @@ pub fn list_entries_by_shelf(db: &Database, id: i64) -> Result<ShelfEntries> {
                 addition_date: row.get(13)?,
                 tags: Vec::<String>::new(),
                 last_played: row.get(14)?,
-                background_image: row.get(16)?,
+                background_image: row.get(15)?,
             })
         })?
         .collect::<Result<Vec<GameEntry>>>()?;
@@ -133,16 +144,15 @@ pub fn get_entry(db: &Database, id: i64) -> Result<GameEntry> {
         Ok(GameEntry {
             entry_id: row.get(0)?,
             shelf_id: row.get(1)?,
-            name: row.get(2)?,
+            igdb_id: row.get(2)?,
+            name: row.get(3)?,
             status: row
-                .get::<_, Option<i64>>(3)?
+                .get::<_, Option<i64>>(4)?
                 .and_then(GameStatus::from_id)
                 .unwrap_or(GameStatus::Backlog),
-            genre: row.get(4)?,
-            length_category: row
-                .get::<_, Option<i64>>(5)?
-                .and_then(LengthCategory::from_id),
-            release_year: row.get(6)?,
+            genre: row.get(5)?,
+            avg_playtime_hours: row.get(6)?,
+            release_date: row.get(7)?,
             source: row.get(8)?,
             launch_path: row.get(9)?,
             ownership_status: row
@@ -154,7 +164,7 @@ pub fn get_entry(db: &Database, id: i64) -> Result<GameEntry> {
             addition_date: row.get(13)?,
             tags: Vec::<String>::new(),
             last_played: row.get(14)?,
-            background_image: row.get(16)?,
+            background_image: row.get(15)?,
         })
     })?;
 
@@ -172,16 +182,15 @@ pub fn get_entry_detail(db: &Database, id: i64) -> Result<GameEntryDetail> {
         Ok(GameEntryDetail {
             entry_id: row.get(0)?,
             shelf_id: row.get(1)?,
-            name: row.get(2)?,
+            igdb_id: row.get(2)?,
+            name: row.get(3)?,
             status: row
-                .get::<_, Option<i64>>(3)?
+                .get::<_, Option<i64>>(4)?
                 .and_then(GameStatus::from_id)
                 .unwrap_or(GameStatus::Backlog),
-            genre: row.get(4)?,
-            length_category: row
-                .get::<_, Option<i64>>(5)?
-                .and_then(LengthCategory::from_id),
-            release_year: row.get(6)?,
+            genre: row.get(5)?,
+            avg_playtime_hours: row.get(6)?,
+            release_date: row.get(7)?,
             source: row.get(8)?,
             launch_path: row.get(9)?,
             ownership_status: row
@@ -193,10 +202,11 @@ pub fn get_entry_detail(db: &Database, id: i64) -> Result<GameEntryDetail> {
             addition_date: row.get(13)?,
             tags: Vec::<String>::new(),
             last_played: row.get(14)?,
-            background_image: row.get(16)?,
+            background_image: row.get(15)?,
             notes: Vec::<TimestampedNote>::new(),
-            stored_api_data: row.get(15)?,
+            stored_api_data: row.get(16)?,
             completion_duration: None,
+            api_data_version: row.get(17)?,
         })
     })?;
 
@@ -280,14 +290,13 @@ pub fn update_entry_metadata(
     db: &Database,
     id: i64,
     genre: Option<&str>,
-    length_category: Option<i64>,
-    release_year: Option<i32>,
-    era: Option<i64>,
+    avg_playtime_hours: Option<i64>,
+    release_date: Option<DateTime<Utc>>,
     source: Option<&str>,
 ) -> Result<usize> {
     db.conn.execute(
-        "UPDATE game_entries SET genre = ?1, length_category = ?2, release_year = ?3, era = ?4, source = ?5 WHERE entry_id = ?6",
-        params![genre, length_category, release_year, era, source, id],
+        "UPDATE game_entries SET genre = ?1, avg_playtime_hours = ?2, release_date = ?3, source = ?4 WHERE entry_id = ?5",
+        params![genre, avg_playtime_hours, release_date, source, id],
     )
 }
 
