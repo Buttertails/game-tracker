@@ -17,7 +17,8 @@ jobs:
       - uses: tauri-apps/tauri-action@v0    
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RAWG_API_KEY: ${{ secrets.RAWG_API_KEY }}
+          IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
+          IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Lil Shelf ${{ github.ref_name }}'
