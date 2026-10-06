@@ -101,7 +101,9 @@ impl IgdbClient {
         let request_body = format!("
             search \"{query}\";
             fields name,first_release_date,genres.name,platforms.name,aggregated_rating,cover.image_id;
-            limit 20; "
+            where game_type = (0,8,9);
+            limit 20; 
+            "
         );
         let body = self.client.post(url).headers(headers.clone()).body(request_body).send().await?;
         let raw_results: Vec<IgdbGameRaw> = body.json().await?;
@@ -135,10 +137,14 @@ impl IgdbClient {
         let ids: Vec<String> = results.iter().map(|r| r.igdb_id.to_string()).collect();
         let id_list = ids.join(",");
 
-        url = format!("{base_url}/game_time_to_beat");
-        let ttb_body = format!("fields game_id,normally; where game_id=({id_list}); limit {}", results.len());
+        url = format!("{base_url}/game_time_to_beats");
+        let ttb_body = format!("fields game_id,normally; where game_id=({id_list}); limit {};", results.len());
         let ttb_response = self.client.post(url).headers(headers).body(ttb_body).send().await?;
-        let ttb_results: Vec<IgdbTimeToBeatRaw> = ttb_response.json().await?;
+        let ttb_text = ttb_response.text().await?;
+        println!("TTB raw response: {}", ttb_text);
+        let ttb_results: Vec<IgdbTimeToBeatRaw> = serde_json::from_str(&ttb_text)
+            .map_err(|e| AppError::ApiUnavailable(format!("TTB decode failed: {e}; body was: {ttb_text}")))?;
+        //let ttb_results: Vec<IgdbTimeToBeatRaw> = ttb_response.json().await?;
 
         let playtime_by_game: HashMap<i64, i64> = ttb_results.into_iter().filter_map(|t| t.normally.map(|s| (t.game_id, s / 3600))).collect();
 
