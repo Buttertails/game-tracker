@@ -323,6 +323,11 @@ function formatLocalDate(utcString: string | null): string {
   return date.toLocaleString(); // converts to user's local timezone
 }
 
+function formatReleaseDate(utcString: string): string {
+  const date = new Date(utcString);
+  return date.toLocaleDateString(); // release dates have no meaningful time component
+}
+
 function formatOwnership(status: string): string {
   switch (status) {
     case "Installed": return "Installed";
@@ -581,65 +586,61 @@ async function clearLaunchPath() {
     />
     <div class="meta-columns">
       {#if editingMetadata}
-        <div class="column">
-          <p>
-            <strong>Genre:</strong>
-            <select bind:value={editGenre}>
-              <option value="">{entry.genre}</option>
-              <option value="Action">Action</option>
-              <option value="RPG">RPG</option>
-              <option value="Adventure">Adventure</option>
-              <option value="Puzzle">Puzzle</option>
-              <option value="Strategy">Strategy</option>
-              <option value="Platformer">Platformer</option>
-              <option value="Horror">Horror</option>
-              <option value="FPS">FPS</option>
-              <option value="Simulation">Simulation</option>
-              <option value="Sports">Sports</option>
-              <option value="Racing">Racing</option>
-              <option value="Fighting">Fighting</option>
-              <option value="Metroidvania">Metroidvania</option>
-              <option value="Roguelite">Roguelite</option>
-            </select> 
-          </p>
-          <p>
-            <strong>Average Playtime Hours:</strong>
-            <input type="number" bind:value={editAvgPlaytime} placeholder={entry.avg_playtime_hours!.toString()} />
-          </p>
-          <p>
-            <strong>Release Date:</strong>
-            <input type="date" bind:value={editDate} placeholder={entry.release_date!.toString()} />
-          </p>
-          <div class="edit-actions">
-            <button class="edit-submit-btn" title="Save changes" onclick={() => saveMetadata(detailEntry?.entry_id!)}>✓ Save</button>
-            <button class="edit-cancel-btn" title="Cancel changes" onclick={() => {if (editingMetadata) {editingMetadata = false;}}}>✗ Cancel</button>
-          </div>
-        </div>
-        <div class="column">
-          <p>
-            <strong>Source:</strong>
-            <input type="text" bind:value={editSource} placeholder={entry.source} />
-          </p>
-          <p>
-            <strong>Status:</strong>
-            <select bind:value={editOwnership}>
-              <option value="NotInstalled">Not Installed</option>
-              <option value="Installed">Installed</option>
-              <option value="Wishlisted">Wishlisted</option>
-          </select>
-          </p>
+        <p>
+          <strong>Genre:</strong>
+          <select bind:value={editGenre}>
+            <option value="">{entry.genre}</option>
+            <option value="Action">Action</option>
+            <option value="RPG">RPG</option>
+            <option value="Adventure">Adventure</option>
+            <option value="Puzzle">Puzzle</option>
+            <option value="Strategy">Strategy</option>
+            <option value="Platformer">Platformer</option>
+            <option value="Horror">Horror</option>
+            <option value="FPS">FPS</option>
+            <option value="Simulation">Simulation</option>
+            <option value="Sports">Sports</option>
+            <option value="Racing">Racing</option>
+            <option value="Fighting">Fighting</option>
+            <option value="Metroidvania">Metroidvania</option>
+            <option value="Roguelite">Roguelite</option>
+          </select> 
+        </p>
+        <p>
+          <strong>Average Playtime Length:</strong>
+          <input type="number" bind:value={editAvgPlaytime} placeholder={entry.avg_playtime_hours!.toString()} /> hours
+        </p>
+        <p>
+          <strong>Release Date:</strong>
+          <input type="date" bind:value={editDate} placeholder={entry.release_date!.toString()} />
+        </p>
+        <p>
+          <strong>Source:</strong>
+          <input type="text" bind:value={editSource} placeholder={entry.source} />
+        </p>
+        <p>
+          <strong>Status:</strong>
+          <select bind:value={editOwnership}>
+            <option value="NotInstalled">Not Installed</option>
+            <option value="Installed">Installed</option>
+            <option value="Wishlisted">Wishlisted</option>
+        </select>
+        </p>
+        <div class="edit-actions">
+          <button class="edit-submit-btn" title="Save changes" onclick={() => saveMetadata(detailEntry?.entry_id!)}>✓ Save</button>
+          <button class="edit-cancel-btn" title="Cancel changes" onclick={() => {if (editingMetadata) {editingMetadata = false;}}}>✗ Cancel</button>
         </div>
       {:else}
-        <div class="column">
-          <p><strong>Genre:</strong> {entry.genre ?? "Not set"}</p>
-          <p><strong>Average Playtime Hours:</strong> {entry.avg_playtime_hours ?? "Not set"}</p>
-          <p><strong>Release Date:</strong> {entry.release_date ?? "Not set"}</p>
+        <div class="metadata-header">
+          <h3>Metadata</h3>
+          <button class="edit-btn" title="Edit metadata" onclick={startEditingMetadata}>✏️</button>
         </div>
-        <div class="column">
-          <p><strong>Source:</strong> {entry.source ?? "Not set"}</p>
-          <p><strong>Status:</strong> {formatOwnership(entry.ownership_status)}</p> 
-          <button class="edit-btn" title="Edit metadata" onclick={startEditingMetadata}>✏️ Edit</button>
-        </div>
+        <div class="metadata-divider"></div>
+        <p><strong>Genre:</strong> {entry.genre ?? "Not set"}</p>
+        <p><strong>Average Playtime Length:</strong> {entry.avg_playtime_hours ? `${entry.avg_playtime_hours} hours` : "Not set"}</p>
+        <p><strong>Release Date:</strong> {entry.release_date ? formatReleaseDate(entry.release_date) : "Not set"}</p>
+        <p><strong>Source:</strong> {entry.source ?? "Not set"}</p>
+        <p><strong>Status:</strong> {formatOwnership(entry.ownership_status)}</p>
       {/if}
     </div>
   </div>
@@ -673,7 +674,7 @@ async function clearLaunchPath() {
   </div>
 {/snippet}
 
-<Modal bind:showModal={showBacklogPicker} >
+<Modal bind:showModal={showBacklogPicker} size={backlogView === "add" && !showManualForm && selectedSearchResult ? "narrow" : "wide"}>
   {#if backlogView === "grid"}
     <h2>Backlog</h2>
     <div class="game-grid">
@@ -799,7 +800,10 @@ async function clearLaunchPath() {
             />
             <h3>{selectedSearchResult.name}</h3>
             {#if selectedSearchResult.release_date}
-              <p class="meta">Released: {selectedSearchResult.release_date.slice(0, 4)}</p>
+              <p class="meta">Released: {formatReleaseDate(selectedSearchResult.release_date)}</p>
+            {/if}
+            {#if selectedSearchResult.avg_playtime_hours}
+              <p class="meta">Average Playtime Length: {selectedSearchResult.avg_playtime_hours} hours</p>
             {/if}
             {#if selectedSearchResult.genres && selectedSearchResult.genres.length > 0}
               <p class="meta">Genre: {selectedSearchResult.genres.join(", ")}</p>
@@ -839,8 +843,8 @@ async function clearLaunchPath() {
         </label>
 
         <label>
-          Average Playtime Hours (for Smart Fill)
-          <input type="number" bind:value={manualAvgPlaytime} placeholder="e.g. 15" min="0" />
+          Average Playtime Length (for Smart Fill)
+          <input type="number" bind:value={manualAvgPlaytime} placeholder="e.g. 15" min="0" /> hours
         </label>
 
         <label>
@@ -1102,8 +1106,8 @@ async function clearLaunchPath() {
   }
 
   .card {
-    width: clamp(280px, 25vw, 500px);
-    height: clamp(158px, 14vw, 281px);
+    width: clamp(158px, 14vw, 281px);
+    height: clamp(224px, 20vw, 398px);
     border-radius: 8px;
     overflow: hidden;
     cursor: pointer;
@@ -1207,7 +1211,7 @@ async function clearLaunchPath() {
 
   .game-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 1rem;
 }
 
@@ -1220,9 +1224,10 @@ async function clearLaunchPath() {
 }
 
 .grid-art {
-  width: 200px;
-  height: 112px;
+  width: 160px;
+  height: 227px;
   border-radius: 6px;
+  border: 1px solid #444;
   overflow: hidden;
   background: #333;
 }
@@ -1384,9 +1389,10 @@ async function clearLaunchPath() {
 }
 
 .result-thumb {
-  width: 60px;
-  height: 40px;
+  width: 48px;
+  height: 68px;
   border-radius: 4px;
+  border: 1px solid #444;
   object-fit: cover;
   background: #333;
 }
@@ -1406,8 +1412,7 @@ async function clearLaunchPath() {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  flex: 1;
-  max-width: 350px;
+  flex: 0 1 350px;
 }
 
 .confirm-sidebar {
@@ -1415,7 +1420,7 @@ async function clearLaunchPath() {
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
-  min-width: 200px;
+  flex: 0 0 auto;
 }
 
 .confirm-sidebar h3 {
@@ -1424,10 +1429,15 @@ async function clearLaunchPath() {
   font-size: 1rem;
 }
 
+.confirm-sidebar p {
+  margin: 0;
+}
+
 .confirm-art {
-  width: 320px;
-  height: 180px;
+  width: 240px;
+  height: 340px;
   border-radius: 6px;
+  border: 1px solid #444;
   object-fit: cover;
   background: #333;
 }
@@ -1542,8 +1552,9 @@ async function clearLaunchPath() {
 
 .detail-sidebar {
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 1.5rem;
 }
 
 .detail-meta p {
@@ -1695,11 +1706,33 @@ async function clearLaunchPath() {
 
 .meta-columns {
   display: flex;
-  gap: 2rem;
+  flex-direction: column;
+  gap: 0.6rem;
   font-size: 0.85rem;
   color: #ccc;
+  flex: 1;
+}
+
+.meta-columns p {
+  margin: 0;
+}
+
+.metadata-header {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
-  width: 100%;
+}
+
+.metadata-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #eee;
+}
+
+.metadata-divider {
+  height: 1px;
+  background: #444;
+  margin: 0 0 0.2rem 0;
 }
 
 .side-area-left {

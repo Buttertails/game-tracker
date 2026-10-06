@@ -1,10 +1,10 @@
 <script lang="ts">
-  let { showModal = $bindable(false), children } = $props();
+  let { showModal = $bindable(false), size = "wide", children } = $props();
 </script>
 
 {#if showModal}
   <div class="modal-overlay" onclick={() => showModal = false}>
-    <div class="modal" onclick={(e) => e.stopPropagation()}>
+    <div class="modal" class:narrow={size === "narrow"} onclick={(e) => e.stopPropagation()}>
       {@render children()}
     </div>
   </div>
@@ -33,5 +33,10 @@
     max-height: 80vh;
     overflow-y: auto;
     color: #eee;
+  }
+
+  .modal.narrow {
+    width: fit-content;
+    max-width: 700px;
   }
 </style>
