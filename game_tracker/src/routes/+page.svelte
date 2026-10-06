@@ -104,13 +104,37 @@
     }
 
 
-    const response = await fetch("https://api.github.com/repos/Buttertails/game-tracker/releases/latest");
-    const data = await response.json();
-    const latestVersion = data.tag_name;
-    const latest = latestVersion.replace("v", "");
-    const currentVersion = await getVersion();
-    appUpdateAvailabe = latest !== currentVersion; 
+    try {
+      const response = await fetch("https://api.github.com/repos/Buttertails/game-tracker/releases/latest");
+      if (!response.ok) {
+        throw new Error(`GitHub returned ${response.status}`);
+      }
+      const data = await response.json();
+      const latestTag = data?.tag_name;
+      if (typeof latestTag === "string") {
+        const latest = latestTag.trim().replace(/^v/i, "");
+        const currentVersion = await getVersion();
+        appUpdateAvailabe = isNewerVersion(latest, currentVersion);
+      }
+    } catch (error) {
+      // Don't let a failed update check (offline, rate limit, bad response) break startup.
+      console.error("Update check failed:", error);
+    }
   });
+
+  // Returns true when `latest` is a strictly higher semver than `current`.
+  function isNewerVersion(latest: string, current: string): boolean {
+    const parse = (v: string) =>
+      v.split(".").map((n) => parseInt(n, 10) || 0);
+    const a = parse(latest);
+    const b = parse(current);
+    const len = Math.max(a.length, b.length);
+    for (let i = 0; i < len; i++) {
+      const diff = (a[i] ?? 0) - (b[i] ?? 0);
+      if (diff !== 0) return diff > 0;
+    }
+    return false;
+  }
 
   async function loadShelf(shelfId: number) {
     activeShelfId = shelfId;
