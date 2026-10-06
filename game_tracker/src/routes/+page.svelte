@@ -608,11 +608,11 @@ async function clearLaunchPath() {
         </p>
         <p>
           <strong>Average Playtime Length:</strong>
-          <input type="number" bind:value={editAvgPlaytime} placeholder={entry.avg_playtime_hours!.toString()} /> hours
+          <input type="number" bind:value={editAvgPlaytime} placeholder={entry.avg_playtime_hours?.toString() ?? "e.g. 15"} /> hours
         </p>
         <p>
           <strong>Release Date:</strong>
-          <input type="date" bind:value={editDate} placeholder={entry.release_date!.toString()} />
+          <input type="date" bind:value={editDate} placeholder={entry.release_date?.toString() ?? "YYYY-MM-DD"} />
         </p>
         <p>
           <strong>Source:</strong>
