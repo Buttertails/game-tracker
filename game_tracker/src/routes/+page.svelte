@@ -20,8 +20,8 @@
     name: string;
     status: string;
     genre: string | null;
-    length_category: string | null;
-    release_year: number | null;
+    avg_playtime_hours: number | null;
+    release_date: string | null;
     source: string | null;
     launch_path: string | null;
     ownership_status: string;
@@ -40,17 +40,17 @@
     completed: GameEntry[];
   }
 
-  interface RawgGameData {
-    id: number;
+  interface SearchResult {
+    igdb_id: number;
     name: string;
-    released: string | null;
+    release_date: string | null;
+    genre: string | null;
+    genres: string[];
+    platforms: string[];
+    avg_playtime_hours: number | null;
     rating: number | null;
-    metacritic: number | null;
-    platforms: { platform: { id: number; name: string } }[] | null;
-    genres: { id: number; name: string }[] | null;
     background_image: string | null;
-    esrb_rating: { name: string } | null;
-    [key: string]: any;  // extra fields
+    stored_api_data: any;  // extra fields
   } 
 
 
@@ -60,17 +60,17 @@
   let showBacklogPicker = $state(false);
   let backlogView = $state<"grid" | "add">("grid");
   let searchQuery = $state("");
-  let searchResults = $state<RawgGameData[]>([]);
+  let searchResults = $state<SearchResult[]>([]);
   let searchLoading = $state(false);
   let searchError = $state("");
   let showManualForm = $state(false);
   let manualName = $state("");
   let manualGenre = $state("");
-  let manualLength = $state("");
-  let manualYear = $state("");
+  let manualAvgPlaytime = $state("");
+  let manualDate = $state("");
   let manualSource = $state("");
   let manualError = $state("");
-  let selectedSearchResult = $state<RawgGameData | null>(null);
+  let selectedSearchResult = $state<SearchResult | null>(null);
   let addSource = $state("");
   let addOwnership = $state("NotInstalled");
   let addLaunchPath = $state("");
@@ -89,8 +89,8 @@
   let appUpdateAvailabe = $state(false);
   let editingMetadata = $state(false);
   let editGenre = $state("");
-  let editLength = $state("");
-  let editYear = $state("");
+  let editAvgPlaytime = $state("");
+  let editDate = $state("");
   let editSource = $state("");
   let editOwnership = $state("");
 
@@ -103,12 +103,13 @@
       await loadShelf(shelves[0].shelf_id);
     }
 
+
     const response = await fetch("https://api.github.com/repos/Buttertails/game-tracker/releases/latest");
     const data = await response.json();
     const latestVersion = data.tag_name;
     const latest = latestVersion.replace("v", "");
     const currentVersion = await getVersion();
-    const appUpdateAvailabe = latest !== currentVersion; 
+    appUpdateAvailabe = latest !== currentVersion; 
   });
 
   async function loadShelf(shelfId: number) {
@@ -162,10 +163,10 @@
     searchLoading = false;
   }
 
-  async function addFromSearch(result: RawgGameData) {
+  async function addFromSearch(result: SearchResult) {
     try {
       await invoke("add_game_from_search", {
-        rawgData: result,
+        searchResult: result,
         shelfId: activeShelfId,
         source: null,
         launchPath: null,
@@ -192,8 +193,8 @@
       name: manualName,
       shelf_id: activeShelfId,
       genre: manualGenre.trim() || null,
-      lengthCategory: manualLength || null,
-      releaseYear: manualYear ? parseInt(manualYear) : null,
+      avg_playtime_hours: manualAvgPlaytime || null,
+      release_date: manualDate ? `${manualDate}T00:00:00Z` : null,
       source: manualSource.trim() || null,
       launchPath: null,
       ownership_status: "NotInstalled",
@@ -205,8 +206,8 @@
       // Reset form and go back to grid
       manualName = "";
       manualGenre = "";
-      manualLength = "";
-      manualYear = "";
+      manualAvgPlaytime = "";
+      manualDate = "";
       manualSource = "";
       backlogView = "grid";
     } catch (error: any) {
@@ -214,7 +215,7 @@
     }
   }
 
-  function selectSearchResult(result: RawgGameData) {
+  function selectSearchResult(result: SearchResult) {
   selectedSearchResult = result;
   // Pre-populate source dropdown options from platforms
   addSource = "";
@@ -231,7 +232,7 @@ async function confirmAddFromSearch() {
 
   try {
     await invoke("add_game_from_search", {
-      rawgData: selectedSearchResult,
+      searchResult: selectedSearchResult,
       shelfId: activeShelfId,
       source: addSource.trim() || null,
       launchPath: addLaunchPath.trim() || null,
@@ -466,6 +467,15 @@ async function updateLaunchPath(detailEntry: GameEntry) {
 
 async function undoToBacklog(entryId: number) {
   const confirmed = await ask("Are you sure? This will clear your completion timestamps.", {title: "Confirm", kind: "warning"});
+  if(!confirmed) return;
+
+  try {
+    await invoke("undo_completion_to_backlog", {entryId, confirmed: true});
+    showDetailModal = false;
+    await loadShelf(activeShelfId!);
+  } catch (error: any) {
+    alert(typeof error === "string" ? error : JSON.stringify(error));
+  }
 
   await invoke("undo_completion_to_backlog", {entryId, confirmed: confirmed});
 }
@@ -474,6 +484,16 @@ async function undoToInProgress(entryId: number) {
   const confirmed = await ask("Are you sure? This will clear your completion timestamps.", {title: "Confirm", kind: "warning"});
 
   await invoke("undo_completion_to_in_progress", {entryId, confirmed: confirmed});
+
+  if (!confirmed) return;
+
+  try {
+    await invoke("undo_completion_to_in_progress", {entryId, confirmed: true});
+    showDetailModal = false;
+    await loadShelf(activeShelfId!);
+  } catch (error: any) {
+    alert(typeof error === "string" ? error : JSON.stringify(error));
+  }
 }
 
 async function updateApp() {
@@ -498,8 +518,8 @@ function handleGlobalKeydown(e: KeyboardEvent) {
 
 function startEditingMetadata() {
   editGenre = detailEntry?.genre ?? "";
-  editLength = detailEntry?.length_category ?? "";
-  editYear = detailEntry?.release_year?.toString() ?? "";
+  editAvgPlaytime = detailEntry?.avg_playtime_hours?.toString() ?? "";
+  editDate = detailEntry?.release_date?.slice(0, 10) ?? "";
   editSource = detailEntry?.source ?? "";
   editOwnership = detailEntry?.ownership_status ?? "";
 
@@ -509,16 +529,16 @@ function startEditingMetadata() {
 async function saveMetadata(entryId: number) {
 
   const genre = editGenre.trim() || null;
-  const length_category = editLength || null;
-  const release_year = editYear ? parseInt(editYear) : null;
+  const avg_playtime_hours = editAvgPlaytime ? parseInt(editAvgPlaytime) : null;
+  const release_date = editDate ? `${editDate}T00:00:00Z` : null;
   const source = editSource.trim() || null;
   const status = editOwnership.trim() || null;
 
   await invoke("update_entry_metadata", {
     entryId,
     genre,
-    lengthCategory: length_category,
-    releaseYear: release_year,
+    avgPlaytimeHours: avg_playtime_hours,
+    releaseDate: release_date,
     source,
   });
 
@@ -583,17 +603,12 @@ async function clearLaunchPath() {
             </select> 
           </p>
           <p>
-            <strong>Length:</strong>
-            <select bind:value={editLength}>
-              <option value="">{entry.length_category}</option>
-              <option value="Short">Short (under 10 hours)</option>
-              <option value="Medium">Medium (10-30 hours)</option>
-              <option value="Long">Long (over 30 hours)</option>
-            </select>
+            <strong>Average Playtime Hours:</strong>
+            <input type="number" bind:value={editAvgPlaytime} placeholder={entry.avg_playtime_hours!.toString()} />
           </p>
           <p>
-            <strong>Release Year:</strong>
-            <input type="number" bind:value={editYear} placeholder={entry.release_year!.toString()} min="1950" max="2100" />
+            <strong>Release Date:</strong>
+            <input type="date" bind:value={editDate} placeholder={entry.release_date!.toString()} />
           </p>
           <div class="edit-actions">
             <button class="edit-submit-btn" title="Save changes" onclick={() => saveMetadata(detailEntry?.entry_id!)}>✓ Save</button>
@@ -617,8 +632,8 @@ async function clearLaunchPath() {
       {:else}
         <div class="column">
           <p><strong>Genre:</strong> {entry.genre ?? "Not set"}</p>
-          <p><strong>Length:</strong> {entry.length_category ?? "Not set"}</p>
-          <p><strong>Release Year:</strong> {entry.release_year ?? "Not set"}</p>
+          <p><strong>Average Playtime Hours:</strong> {entry.avg_playtime_hours ?? "Not set"}</p>
+          <p><strong>Release Date:</strong> {entry.release_date ?? "Not set"}</p>
         </div>
         <div class="column">
           <p><strong>Source:</strong> {entry.source ?? "Not set"}</p>
@@ -677,7 +692,7 @@ async function clearLaunchPath() {
             <img src={entry.background_image || "/placeholder.png"} alt={entry.name} />
           </div>
           <p class="grid-name">
-              {#if !entry.genre || !entry.length_category || !entry.release_year}
+              {#if !entry.genre || !entry.avg_playtime_hours || !entry.release_date}
                 <span style="color: #f5a623" title="Missing metadata for SmartFill">⚠</span> 
               {/if}
                 {entry.name}
@@ -723,8 +738,8 @@ async function clearLaunchPath() {
                 <div class="result-info">
                   <strong>{result.name}</strong>
                   <span class="meta">
-                    {#if result.released}({result.released.slice(0, 4)}){/if}
-                    {#if result.genres && result.genres.length > 0}• {result.genres[0].name}{/if}
+                    {#if result.release_date}({result.release_date.slice(0, 4)}){/if}
+                    {#if result.genres && result.genres.length > 0}• {result.genres[0]}{/if}
                   </span>
                 </div>
               </li>
@@ -745,7 +760,7 @@ async function clearLaunchPath() {
                 <option value="">-- Select --</option>
                 {#if selectedSearchResult.platforms}
                   {#each selectedSearchResult.platforms as p}
-                    <option value={p.platform.name}>{p.platform.name}</option>
+                    <option value={p}>{p}</option>
                   {/each}
                 {/if}
                 <option value="Other">Other</option>
@@ -783,11 +798,11 @@ async function clearLaunchPath() {
               alt={selectedSearchResult.name}
             />
             <h3>{selectedSearchResult.name}</h3>
-            {#if selectedSearchResult.released}
-              <p class="meta">Released: {selectedSearchResult.released.slice(0, 4)}</p>
+            {#if selectedSearchResult.release_date}
+              <p class="meta">Released: {selectedSearchResult.release_date.slice(0, 4)}</p>
             {/if}
             {#if selectedSearchResult.genres && selectedSearchResult.genres.length > 0}
-              <p class="meta">Genre: {selectedSearchResult.genres.map(g => g.name).join(", ")}</p>
+              <p class="meta">Genre: {selectedSearchResult.genres.join(", ")}</p>
             {/if}
           </div>
         </div>
@@ -824,18 +839,13 @@ async function clearLaunchPath() {
         </label>
 
         <label>
-          Estimated Length (for Smart Fill)
-          <select bind:value={manualLength}>
-            <option value="">-- Select --</option>
-            <option value="Short">Short (under 10 hours)</option>
-            <option value="Medium">Medium (10-30 hours)</option>
-            <option value="Long">Long (over 30 hours)</option>
-          </select>
+          Average Playtime Hours (for Smart Fill)
+          <input type="number" bind:value={manualAvgPlaytime} placeholder="e.g. 15" min="0" />
         </label>
 
         <label>
-          Release Year (for Smart Fill)
-          <input type="number" bind:value={manualYear} placeholder="e.g. 2017" min="1950" max="2100" />
+          Release Date (for Smart Fill)
+          <input type="date" bind:value={manualDate} />
         </label>
 
         <label>
@@ -876,7 +886,7 @@ async function clearLaunchPath() {
           </p>
         </div>
 
-        {#if !detailEntry.genre || !detailEntry.length_category || !detailEntry.release_year}
+        {#if !detailEntry.genre || !detailEntry.avg_playtime_hours || !detailEntry.release_date}
         <div>
           <p class="warning-note">⚠ Missing metadata — not eligible for Smart Fill
             <button class=update-btn title="Manually set missing data" onclick={startEditingMetadata}>✏️</button>
@@ -966,7 +976,7 @@ async function clearLaunchPath() {
               <img class="box-art" src={entry.background_image || "/placeholder.png"} alt={entry.name} />
             </div>
             <p class="game-name">
-              {#if !entry.genre || !entry.length_category || !entry.release_year}
+              {#if !entry.genre || !entry.avg_playtime_hours || !entry.release_date}
                 <span style="color: #f5a623" title="Missing metadata for SmartFill">⚠</span> 
               {/if}
                 {entry.name}
