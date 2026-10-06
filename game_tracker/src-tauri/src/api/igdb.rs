@@ -140,11 +140,7 @@ impl IgdbClient {
         url = format!("{base_url}/game_time_to_beats");
         let ttb_body = format!("fields game_id,normally; where game_id=({id_list}); limit {};", results.len());
         let ttb_response = self.client.post(url).headers(headers).body(ttb_body).send().await?;
-        let ttb_text = ttb_response.text().await?;
-        println!("TTB raw response: {}", ttb_text);
-        let ttb_results: Vec<IgdbTimeToBeatRaw> = serde_json::from_str(&ttb_text)
-            .map_err(|e| AppError::ApiUnavailable(format!("TTB decode failed: {e}; body was: {ttb_text}")))?;
-        //let ttb_results: Vec<IgdbTimeToBeatRaw> = ttb_response.json().await?;
+        let ttb_results: Vec<IgdbTimeToBeatRaw> = ttb_response.json().await?;
 
         let playtime_by_game: HashMap<i64, i64> = ttb_results.into_iter().filter_map(|t| t.normally.map(|s| (t.game_id, s / 3600))).collect();
 
