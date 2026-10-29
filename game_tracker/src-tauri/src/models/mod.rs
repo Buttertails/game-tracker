@@ -1,15 +1,24 @@
 pub mod error;
 
 use chrono::{DateTime, Datelike, Utc};
+use rusqlite::StatementStatus::Sort;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GameStatus {
     Backlog,
     InProgress,
     Completed,
+}
+
+pub enum SortMode {
+    ReleaseDateOldest,
+    ReleaseDateNewest,
+    Alphabet,
+    AlphabetReverse,
+    DateAddedOldest,
+    DateAddedNewest,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -164,9 +173,8 @@ pub struct SearchResult {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IgdbTimeToBeatRaw {
     pub game_id: i64,
-    pub normally: Option<i64>
+    pub normally: Option<i64>,
 }
-
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct IgdbGameRaw {
@@ -308,6 +316,31 @@ impl fmt::Display for GameStatus {
             GameStatus::Backlog => write!(f, "Backlog"),
             GameStatus::InProgress => write!(f, "In Progress"),
             GameStatus::Completed => write!(f, "Completed"),
+        }
+    }
+}
+
+impl SortMode {
+    pub fn from_id(id: i64) -> Option<Self> {
+        match id {
+            1 => Some(SortMode::ReleaseDateOldest),
+            2 => Some(SortMode::ReleaseDateNewest),
+            3 => Some(SortMode::Alphabet),
+            4 => Some(SortMode::AlphabetReverse),
+            5 => Some(SortMode::DateAddedOldest),
+            6 => Some(SortMode::DateAddedNewest),
+            _ => None,
+        }
+    }
+
+    pub fn to_id(&self) -> i64 {
+        match self {
+            SortMode::ReleaseDateOldest => 1,
+            SortMode::ReleaseDateNewest => 2,
+            SortMode::Alphabet => 3,
+            SortMode::AlphabetReverse => 4,
+            SortMode::DateAddedOldest => 5,
+            SortMode::DateAddedNewest => 6,
         }
     }
 }

@@ -4,36 +4,40 @@ pub mod shelves;
 pub mod tags;
 
 use rusqlite::Connection;
+use rusqlite_migration::{Migrations, M};
 
 pub struct Database {
     pub conn: Connection,
 }
 
 impl Database {
-    pub fn new(path: &str) -> Result<Self, rusqlite::Error> {
-        let conn = Connection::open(path)?;
+    pub fn new(path: &str) -> Result<Self, rusqlite_migration::Error> {
+        let mut conn = Connection::open(path)?;
 
         conn.execute_batch("PRAGMA journal_mode=WAL;")?;
         conn.execute_batch("PRAGMA foreign_keys=ON;")?;
 
-        let db = Database { conn };
+        let version: i32 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
+        println!("Version: {version}");
+
+        let mut db = Database { conn };
         db.run_migrations()?;
         Ok(db)
     }
 
-    pub fn new_in_memory() -> Result<Self, rusqlite::Error> {
+    pub fn new_in_memory() -> Result<Self, rusqlite_migration::Error> {
         let conn = Connection::open_in_memory()?;
 
         conn.execute_batch("PRAGMA foreign_keys=ON;")?;
 
-        let db = Database { conn };
+        let mut db = Database { conn };
         db.run_migrations()?;
         Ok(db)
     }
 
-    fn run_migrations(&self) -> Result<(), rusqlite::Error> {
-        self.conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS shelves (
+    fn run_migrations(&mut self) -> Result<(), rusqlite_migration::Error> {
+        let migrations = Migrations::new(vec![
+            M::up("CREATE TABLE IF NOT EXISTS shelves (
                 shelf_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL UNIQUE COLLATE NOCASE,
                 created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -104,7 +108,26 @@ impl Database {
             INSERT INTO ownership_statuses(ownership_status_type) SELECT 'installed' WHERE NOT EXISTS (SELECT 1 FROM ownership_statuses WHERE ownership_status_type = 'installed');
             INSERT INTO ownership_statuses(ownership_status_type) SELECT 'not_installed' WHERE NOT EXISTS (SELECT 1 FROM ownership_statuses WHERE ownership_status_type = 'not_installed');
             INSERT INTO ownership_statuses(ownership_status_type) SELECT 'wishlisted' WHERE NOT EXISTS (SELECT 1 FROM ownership_statuses WHERE ownership_status_type = 'wishlisted');
-            "
-        )
+            "),
+            M::up("CREATE TABLE IF NOT EXISTS sort_modes (
+                    sort_mode_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    sort_mode_type TEXT
+                );
+                ALTER TABLE shelves ADD COLUMN backlog_sort DEFAULT 5; 
+                ALTER TABLE shelves ADD COLUMN completed_sort DEFAULT 5; 
+                
+
+                INSERT INTO sort_modes(sort_mode_type) VALUES ('release date oldest') ON CONFLICT (sort_mode_type) DO NOTHING;
+                INSERT INTO sort_modes(sort_mode_type) VALUES ('release date newest') ON CONFLICT (sort_mode_type) DO NOTHING;
+                INSERT INTO sort_modes(sort_mode_type) VALUES ('alphabet') ON CONFLICT (sort_mode_type) DO NOTHING;
+                INSERT INTO sort_modes(sort_mode_type) VALUES ('alphabet reverse') ON CONFLICT (sort_mode_type) DO NOTHING;
+                INSERT INTO sort_modes(sort_mode_type) VALUES ('date added oldest') ON CONFLICT (sort_mode_type) DO NOTHING;
+                INSERT INTO sort_modes(sort_mode_type) VALUES ('date added newest') ON CONFLICT (sort_mode_type) DO NOTHING;
+            ")
+        ]);
+
+        migrations.to_latest(&mut self.conn)?;
+
+        Ok(())
     }
 }

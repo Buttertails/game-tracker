@@ -1243,6 +1243,7 @@ dependencies = [
  "rand 0.10.2",
  "reqwest",
  "rusqlite",
+ "rusqlite_migration",
  "serde",
  "serde_json",
  "tauri",
@@ -2988,7 +2989,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -3248,6 +3249,16 @@ dependencies = [
  "serde_json",
  "smallvec",
  "sqlite-wasm-rs",
+]
+
+[[package]]
+name = "rusqlite_migration"
+version = "2.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "03451d4dc523c0a96d9e412c574670b3f5f184c3988b77a435876be25477bbd3"
+dependencies = [
+ "log",
+ "rusqlite",
 ]
 
 [[package]]

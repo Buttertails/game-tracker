@@ -53,6 +53,16 @@
     stored_api_data: any;  // extra fields
   } 
 
+  const SortMode = {
+    releaseDateOldest: 'releaseDateOldest',
+    releaseDateNewest: 'releaseDateNewest',
+    alphabet: 'alphabet',
+    alphabetReverse: 'alphabetReverse',
+    dateAddedOldest: 'dateAddedOldest',
+    dateAddedNewest: 'dateAddedNewest'
+  } as const;
+
+  type SortModeType = typeof SortMode[keyof typeof SortMode];
 
   let shelves = $state<ShelfSummary[]>([]);
   let activeShelfId = $state<number | null>(null);
@@ -597,6 +607,45 @@ async function clearLaunchPath() {
   detailEntry!.ownership_status = "NotInstalled";
 }
 
+async function sortBacklog(sortMode: SortModeType) {
+  switch (sortMode) {
+    case SortMode.alphabet:
+      shelfData?.backlog.sort((a,b) => a.name.localeCompare(b.name));
+      break;
+    case SortMode.alphabetReverse:
+      shelfData?.backlog.sort((a,b) => b.name.localeCompare(a.name));
+      break;
+    case SortMode.releaseDateOldest:
+      shelfData?.backlog.sort((a,b) => {
+        let aDate = new Date(a.release_date!);
+        let bDate = new Date(b.release_date!);
+        return aDate.getTime() - bDate.getTime();
+      })
+      break;
+    case SortMode.releaseDateNewest:
+      shelfData?.backlog.sort((a,b) => {
+        let aDate = new Date(a.release_date!);
+        let bDate = new Date(b.release_date!);
+        return bDate.getTime() - aDate.getTime();
+      })
+      break;
+    case SortMode.dateAddedOldest:
+      shelfData?.backlog.sort((a,b) => {
+        let aDate = new Date(a.addition_date);
+        let bDate = new Date(b.addition_date!);
+        return aDate.getTime() - bDate.getTime();
+      })
+      break;
+    case SortMode.dateAddedNewest:
+      shelfData?.backlog.sort((a,b) => {
+        let aDate = new Date(a.addition_date);
+        let bDate = new Date(b.addition_date!);
+        return bDate.getTime() - aDate.getTime();
+      })
+      break;
+  }
+}
+
 </script>
 
 <svelte:window onkeydown={handleGlobalKeydown} />
@@ -701,6 +750,15 @@ async function clearLaunchPath() {
 <Modal bind:showModal={showBacklogPicker} size={backlogView === "add" && !showManualForm && selectedSearchResult ? "narrow" : "wide"}>
   {#if backlogView === "grid"}
     <h2>Backlog</h2>
+    <div class="sort-options">
+      <label>Sort</label>
+      <button class="start-btn" onclick={() => sortBacklog(SortMode.releaseDateOldest)}>Release Date (Oldest)</button>
+      <button class="start-btn" onclick={() => sortBacklog(SortMode.releaseDateNewest)}>Release Date (Newest)</button>
+      <button class="start-btn" onclick={() => sortBacklog(SortMode.dateAddedOldest)}>Date Added (Oldest)</button>
+      <button class="start-btn" onclick={() => sortBacklog(SortMode.dateAddedNewest)}>Date Added (Newest)</button>
+      <button class="start-btn" onclick={() => sortBacklog(SortMode.alphabet)}>Alphabetically (A-Z)</button>
+      <button class="start-btn" onclick={() => sortBacklog(SortMode.alphabetReverse)}>Alphabetically (Z-A)</button>
+    </div>
     <div class="game-grid">
       <!-- Add New card -->
       <div class="grid-card empty" onclick={openAddGame}>
@@ -1837,6 +1895,10 @@ async function clearLaunchPath() {
 
 .clear-path:hover {
   color: #ff6b6b;
+}
+
+.sort-options{
+  padding: 0.2rem 0.4rem;
 }
 
 </style>

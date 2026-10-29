@@ -1,5 +1,5 @@
 use super::Database;
-use crate::models::{Shelf, ShelfSummary};
+use crate::models::{Shelf, ShelfSummary, SortMode};
 
 use rusqlite::{params, OptionalExtension, Result};
 
@@ -81,7 +81,9 @@ pub fn list_shelves_with_counts(db: &Database) -> Result<Vec<ShelfSummary>> {
 	        s.name, 
 	        count(CASE WHEN g.status = 1 THEN 1 END) as backlog_count,
 	        count(CASE WHEN g.status = 2 THEN 1 END) as in_progress_count,
-	        count(CASE WHEN g.status = 3 THEN 1 END) as completed_count
+	        count(CASE WHEN g.status = 3 THEN 1 END) as completed_count,
+            backlog_sort,
+            completed_sort
         FROM shelves as s 
         LEFT JOIN game_entries as g ON s.shelf_id = g.shelf_id
         GROUP BY s.shelf_id, s.name
@@ -96,9 +98,29 @@ pub fn list_shelves_with_counts(db: &Database) -> Result<Vec<ShelfSummary>> {
                 backlog_count: row.get(2)?,
                 in_progress_count: row.get(3)?,
                 completed_count: row.get(4)?,
+                backlog_sort: row.get(5)?,
+                completed_sort: row.get(6)?,
             })
         })?
         .collect::<Result<Vec<_>>>()?;
 
     Ok(shelves)
+}
+
+pub fn update_sort_backlog(db: &Database, id: i64, sort_mode: SortMode) -> Result<usize> {
+    let result = db.conn.execute(
+        "UPDATE shelves SET backlog_sort = ?1 WHERE shelf_id = ?2",
+        params![sort_mode.to_id(), id],
+    )?;
+
+    Ok(result)
+}
+
+pub fn update_sort_completed(db: &Database, id: i64, sort_mode: SortMode) -> Result<usize> {
+    let result = db.conn.execute(
+        "UPDATE shelves SET completed_sort = ?1 WHERE shelf_id = ?2",
+        params![sort_mode.to_id(), id],
+    )?;
+
+    Ok(result)
 }
